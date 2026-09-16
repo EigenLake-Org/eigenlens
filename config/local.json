@@ -1,0 +1,85 @@
+{
+  "data_dir": ".vector-ml",
+  "limits": {
+    "max_rows": 10000,
+    "max_scan_rows": 100000,
+    "max_bytes": 67108864,
+    "max_jobs": 2
+  },
+  "callers": {
+    "local": {
+      "sources": [
+        "demo",
+        "qdrant",
+        "weaviate",
+        "pgvector",
+        "pinecone",
+        "food_reviews"
+      ],
+      "token_env": "VECTOR_ML_MCP_TOKEN"
+    }
+  },
+  "sources": {
+    "demo": {
+      "kind": "demo"
+    },
+    "qdrant": {
+      "kind": "qdrant",
+      "url": "http://localhost:6333",
+      "mapping": {
+        "collection": "vt_tickets",
+        "vector_field": "body",
+        "text_field": "text",
+        "parent_field": "parent_id"
+      }
+    },
+    "weaviate": {
+      "kind": "weaviate",
+      "host": "localhost",
+      "mapping": {
+        "collection": "VtTickets",
+        "tenant": "vt-test",
+        "vector_field": "body",
+        "text_field": "text",
+        "parent_field": "parent_id"
+      }
+    },
+    "pgvector": {
+      "kind": "pgvector",
+      "dsn_env": "PGVECTOR_DSN",
+      "mapping": {
+        "schema": "public",
+        "table": "vt_tickets",
+        "id_column": "id",
+        "vector_column": "embedding",
+        "text_column": "text",
+        "metadata_columns": [
+          "theme",
+          "status",
+          "synthetic"
+        ],
+        "parent_column": "parent_id",
+        "metric": "cosine"
+      }
+    },
+    "pinecone": {
+      "kind": "pinecone",
+      "index": "vector-ml-test",
+      "mapping": {
+        "namespace": "vt-test",
+        "text_field": "text",
+        "parent_field": "parent_id"
+      }
+    },
+    "food_reviews": {
+      "kind": "qdrant",
+      "url": "http://localhost:6333",
+      "mapping": {
+        "collection": "food_reviews",
+        "vector_field": "body",
+        "text_field": "text",
+        "parent_field": "parent_id"
+      }
+    }
+  }
+}

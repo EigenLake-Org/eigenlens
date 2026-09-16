@@ -1,0 +1,10 @@
+.................s....s.........                                         [100%]
+=============================== warnings summary ===============================
+tests/test_mcp_agents.py::test_agent_workflow_real_discovery[http]
+tests/test_mcp_agents.py::test_turn_limit_resume_without_duplicate[http]
+tests/test_mcp_agents.py::test_background_job_responsive_and_terminal_error[http]
+  /opt/homebrew/Cellar/python@3.13/3.13.1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py:109: DeprecationWarning: Use `streamable_http_client` instead.
+    self.gen = func(*args, **kwds)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+30 passed, 2 skipped, 3 warnings in 42.57s

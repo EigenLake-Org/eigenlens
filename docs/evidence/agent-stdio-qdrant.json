@@ -1,0 +1,1257 @@
+{
+  "mode": "deterministic model stub; real Agent/Runner/MCP/ML",
+  "status": "completed",
+  "initial_turn_limit_hit": false,
+  "initial_answer": "Job job_8acbe9814316415a8bdba58bae5f603a is queued. The host will poll and resume inspection.",
+  "final_answer": "Computed analysis covers 62 vector records (sample). Cluster sizes: {'0': 20, '1': 20, '2': 20, '3': 2}. Sentiment: {'negative': 42, 'positive': 20}. Inspected source examples: 0d0de684-2230-5672-8c00-f87f8ca4b8c8, d9f3e4eb-dadb-577a-a2c8-f58492dfeeea, 548c5219-6643-58e6-b5ab-4bd55fc5a1c6, 31ea918f-bfd7-558e-873d-aaa4fbdb4364, 2658693c-8698-57c5-b9d2-a2ca4a9be96f, 2c0d70d4-cecf-52bd-bc90-b036fbc4633b, 8f85da57-5847-58f6-90bf-bd6bbb4984ed, 18280a95-a39d-5882-aa69-c14c1466973e, 1edd37d6-ea94-5923-9dfd-7a1c38ab45ec, 17e0588e-e6a3-553b-aab1-046df4fcf6f1, 000c3b5b-023d-5400-b694-07cd4edc0cd2, 00bed6bc-e001-5890-ae8f-b6d01620a59b. Themes are investigation leads; this synthetic sample does not establish collection-wide failure causes.",
+  "jobs": [
+    {
+      "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+      "status": "succeeded",
+      "results": {
+        "groups": "res_d1ac8bb49d12450bbe1318e6ece3b0d3",
+        "outliers": "res_71af222322f7478cb92d0e54afde5ccd",
+        "sentiment": "res_ad193de09b5d4e3ab187e0ad7d288f8c",
+        "themes": "res_c067510cc3c54e37a463350a24a10cec"
+      },
+      "error": null,
+      "created_at": "2026-09-15T19:50:34.109560+00:00",
+      "updated_at": "2026-09-15T19:50:36.345419+00:00",
+      "backend": "local",
+      "progress": {
+        "phase": "succeeded",
+        "fraction": 1
+      }
+    }
+  ],
+  "trace": [
+    {
+      "tool": "get_capabilities",
+      "arguments": {},
+      "result": {
+        "schema_version": "1.0",
+        "source_capabilities": {
+          "demo": {
+            "id_fetch": "adapter",
+            "iteration": "adapter",
+            "filtered_reads": "adapter",
+            "projection": "adapter",
+            "exact_count": "native",
+            "estimated_count": "unavailable",
+            "seeded_sampling": "adapter",
+            "partitioned_reads": "unavailable",
+            "predicates": [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "exists"
+            ],
+            "vector_types": [
+              "dense"
+            ],
+            "consistency": "best effort; no cross-page snapshot",
+            "filter_cost": "Full bounded selection read; predicates evaluated in adapter dataset layer"
+          },
+          "qdrant": {
+            "id_fetch": "native",
+            "iteration": "native",
+            "filtered_reads": "adapter",
+            "projection": "native",
+            "exact_count": "unavailable",
+            "estimated_count": "unavailable",
+            "seeded_sampling": "adapter",
+            "partitioned_reads": "unavailable",
+            "predicates": [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "exists"
+            ],
+            "vector_types": [
+              "dense"
+            ],
+            "consistency": "best effort; no cross-page snapshot",
+            "filter_cost": "Full bounded selection read; predicates evaluated in adapter dataset layer"
+          },
+          "weaviate": {
+            "id_fetch": "native",
+            "iteration": "native",
+            "filtered_reads": "adapter",
+            "projection": "native",
+            "exact_count": "unavailable",
+            "estimated_count": "unavailable",
+            "seeded_sampling": "adapter",
+            "partitioned_reads": "unavailable",
+            "predicates": [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "exists"
+            ],
+            "vector_types": [
+              "dense"
+            ],
+            "consistency": "best effort; no cross-page snapshot",
+            "filter_cost": "Full bounded selection read; predicates evaluated in adapter dataset layer"
+          },
+          "pgvector": {
+            "id_fetch": "native",
+            "iteration": "native",
+            "filtered_reads": "native",
+            "projection": "native",
+            "exact_count": "unavailable",
+            "estimated_count": "unavailable",
+            "seeded_sampling": "adapter",
+            "partitioned_reads": "unavailable",
+            "predicates": [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "exists"
+            ],
+            "vector_types": [
+              "dense"
+            ],
+            "consistency": "read-only repeatable read",
+            "filter_cost": "Full bounded selection read; predicates evaluated in adapter dataset layer"
+          },
+          "pinecone": {
+            "id_fetch": "native",
+            "iteration": "unavailable",
+            "filtered_reads": "adapter",
+            "projection": "unavailable",
+            "exact_count": "unavailable",
+            "estimated_count": "unavailable",
+            "seeded_sampling": "unavailable",
+            "partitioned_reads": "unavailable",
+            "predicates": [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "exists"
+            ],
+            "vector_types": [
+              "dense"
+            ],
+            "consistency": "best effort; no cross-page snapshot",
+            "filter_cost": "Full bounded selection read; predicates evaluated in adapter dataset layer",
+            "constraints": "describe_source verifies serverless deployment before enabling listing and sampling"
+          }
+        },
+        "sources": [
+          "demo",
+          "qdrant",
+          "weaviate",
+          "pgvector",
+          "pinecone"
+        ],
+        "operations": {
+          "cluster": {
+            "algorithm": "minibatch_kmeans",
+            "parameters": [
+              "batch_size",
+              "max_iter",
+              "n_clusters",
+              "n_init",
+              "normalize",
+              "random_state"
+            ],
+            "required_fields": [
+              "vector"
+            ]
+          },
+          "topics": {
+            "algorithm": "ctfidf",
+            "parameters": [
+              "stop_words",
+              "top_n"
+            ],
+            "required_fields": [
+              "text"
+            ]
+          },
+          "sentiment": {
+            "algorithm": "vader",
+            "parameters": [
+              "batch_size",
+              "negative_threshold",
+              "positive_threshold"
+            ],
+            "required_fields": [
+              "text"
+            ]
+          },
+          "outliers": {
+            "algorithm": "isolation_forest",
+            "parameters": [
+              "contamination",
+              "max_samples",
+              "n_estimators",
+              "normalize",
+              "random_state"
+            ],
+            "required_fields": [
+              "vector"
+            ]
+          }
+        },
+        "sentiment": {
+          "available": true,
+          "model": "vader",
+          "version": "3.3.2"
+        },
+        "backends": [
+          {
+            "name": "local",
+            "implemented": true,
+            "operations": [
+              "cluster",
+              "topics",
+              "sentiment",
+              "outliers"
+            ],
+            "execution": "calling process for SDK; dedicated child process for service"
+          },
+          {
+            "name": "spark",
+            "implemented": false,
+            "operations": [],
+            "requirements": "Disjoint Arrow artifact partitions on distributed-readable storage, installed Spark operators, remote job lifecycle; never wrap a local sklearn estimator as distributed."
+          }
+        ],
+        "limits": {
+          "schema_version": "1.0",
+          "max_rows": 10000,
+          "max_scan_rows": 100000,
+          "max_bytes": 67108864,
+          "batch_size": 256,
+          "max_jobs": 2,
+          "max_pending_jobs": 32,
+          "max_clusters": 256,
+          "max_working_bytes": 268435456,
+          "max_seconds": 300
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "describe_source",
+      "arguments": {
+        "source_id": "qdrant"
+      },
+      "result": {
+        "source_id": "qdrant",
+        "identity": {
+          "kind": "qdrant",
+          "source_name": "qdrant",
+          "endpoint": "http://localhost:6333",
+          "collection": "vt_tickets",
+          "vector_field": "body",
+          "text_field": "text",
+          "parent_field": "parent_id",
+          "dimension": 4,
+          "distance": "Cosine"
+        },
+        "capabilities": {
+          "id_fetch": "native",
+          "iteration": "native",
+          "filtered_reads": "adapter",
+          "projection": "native",
+          "exact_count": "unavailable",
+          "estimated_count": "unavailable",
+          "seeded_sampling": "adapter",
+          "partitioned_reads": "unavailable",
+          "predicates": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "in",
+            "exists"
+          ],
+          "vector_types": [
+            "dense"
+          ],
+          "consistency": "best effort; no cross-page snapshot",
+          "filter_cost": "Full bounded selection read; predicates evaluated in adapter dataset layer"
+        },
+        "available_fields": [
+          "id",
+          "vector",
+          "text",
+          "metadata",
+          "parent_id"
+        ]
+      },
+      "is_error": false
+    },
+    {
+      "tool": "create_dataset",
+      "arguments": {
+        "source_id": "qdrant",
+        "selection": {
+          "sample_n": 62,
+          "seed": 42
+        }
+      },
+      "result": {
+        "dataset_id": "ds_c9cd835f04994bcfa6b85dbc5ca7af9e",
+        "scope": "sample",
+        "selection": {
+          "schema_version": "1.0",
+          "ids": null,
+          "filters": [],
+          "sample_n": 62,
+          "seed": 42
+        },
+        "count": null,
+        "count_kind": "unknown",
+        "requested_id_count": null,
+        "count_unit": "vector_records",
+        "source": {
+          "kind": "qdrant",
+          "source_name": "qdrant",
+          "endpoint": "http://localhost:6333",
+          "collection": "vt_tickets",
+          "vector_field": "body",
+          "text_field": "text",
+          "parent_field": "parent_id"
+        },
+        "available_fields": [
+          "id",
+          "vector",
+          "text",
+          "metadata",
+          "parent_id"
+        ],
+        "read_plan": {
+          "filter": "client",
+          "sampling": "client full bounded scan"
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "run_analysis",
+      "arguments": {
+        "dataset_id": "ds_c9cd835f04994bcfa6b85dbc5ca7af9e",
+        "operations": [
+          {
+            "id": "groups",
+            "type": "cluster",
+            "parameters": {
+              "n_clusters": 4,
+              "random_state": 42
+            }
+          },
+          {
+            "id": "themes",
+            "type": "topics",
+            "clusters_from": "groups"
+          },
+          {
+            "id": "sentiment",
+            "type": "sentiment",
+            "clusters_from": "groups"
+          },
+          {
+            "id": "outliers",
+            "type": "outliers"
+          }
+        ],
+        "idempotency_key": "10a1355af3d941508026fa76979d67d2"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "queued",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:34.109572+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "queued",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "queued",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:34.109572+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "queued",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "queued",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:34.109572+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "queued",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "queued",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:34.109572+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "queued",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "queued",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:34.109572+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "queued",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "queued",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:34.109572+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "queued",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "running",
+        "results": {},
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:35.574272+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "running",
+          "fraction": null
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_job",
+      "arguments": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a"
+      },
+      "result": {
+        "job_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "status": "succeeded",
+        "results": {
+          "groups": "res_d1ac8bb49d12450bbe1318e6ece3b0d3",
+          "outliers": "res_71af222322f7478cb92d0e54afde5ccd",
+          "sentiment": "res_ad193de09b5d4e3ab187e0ad7d288f8c",
+          "themes": "res_c067510cc3c54e37a463350a24a10cec"
+        },
+        "error": null,
+        "created_at": "2026-09-15T19:50:34.109560+00:00",
+        "updated_at": "2026-09-15T19:50:36.345419+00:00",
+        "backend": "local",
+        "progress": {
+          "phase": "succeeded",
+          "fraction": 1
+        }
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_summary",
+      "arguments": {
+        "result_id": "res_d1ac8bb49d12450bbe1318e6ece3b0d3"
+      },
+      "result": {
+        "schema_version": "1.0",
+        "result_id": "res_d1ac8bb49d12450bbe1318e6ece3b0d3",
+        "run_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "operation_id": "groups",
+        "operation": "cluster",
+        "dataset_fingerprint": "0695603f88dc970fc5a814ef222e5176420fc2d9c69d502ce27f1f29605f04b5",
+        "scope": "sample",
+        "source": {
+          "collection": "vt_tickets",
+          "dimension": 4,
+          "distance": "Cosine",
+          "endpoint": "http://localhost:6333",
+          "kind": "qdrant",
+          "parent_field": "parent_id",
+          "source_name": "qdrant",
+          "text_field": "text",
+          "vector_field": "body"
+        },
+        "processed": 62,
+        "skipped": {
+          "invalid_vectors": 0,
+          "missing_ids": 0
+        },
+        "effective_parameters": {
+          "batch_size": 1024,
+          "compute_labels": true,
+          "distance_assumption": "Euclidean on supplied embeddings",
+          "init": "k-means++",
+          "init_size": null,
+          "max_iter": 100,
+          "max_no_improvement": 10,
+          "n_clusters": 4,
+          "n_init": 3,
+          "normalize": false,
+          "random_state": 42,
+          "reassignment_ratio": 0.01,
+          "tol": 0.0,
+          "verbose": 0
+        },
+        "versions": {
+          "numpy": "2.5.3",
+          "scikit-learn": "1.9.1",
+          "vector-tools": "0.1.0"
+        },
+        "created_at": "2026-09-15T19:50:36.240637+00:00",
+        "summary_data": {
+          "cluster_sizes": {
+            "0": 20,
+            "1": 20,
+            "2": 20,
+            "3": 2
+          },
+          "inertia": 0.6127725518795378,
+          "materialized_artifact_id": "data_c12ddbd5e4bb4eabbf95ab6e30851696",
+          "selected_records": 62,
+          "source_read_count": 62,
+          "unique_parent_ids": 60,
+          "centroid_shape": [
+            4,
+            4
+          ],
+          "selection_context": {
+            "sample_n": 62,
+            "seed": 42,
+            "sample_population": "complete bounded selection",
+            "filter_count": 0
+          }
+        },
+        "backend": "local",
+        "count_unit": "vector_records",
+        "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_examples",
+      "arguments": {
+        "result_id": "res_d1ac8bb49d12450bbe1318e6ece3b0d3"
+      },
+      "result": {
+        "result_id": "res_d1ac8bb49d12450bbe1318e6ece3b0d3",
+        "examples": [
+          {
+            "cluster_id": 0,
+            "distance": 0.01313500499521749,
+            "id": "0d0de684-2230-5672-8c00-f87f8ca4b8c8",
+            "parent_id": "ticket-login-006",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 6."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.015435303308594097,
+            "id": "d9f3e4eb-dadb-577a-a2c8-f58492dfeeea",
+            "parent_id": "ticket-login-015",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 15."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.015662680037233482,
+            "id": "548c5219-6643-58e6-b5ab-4bd55fc5a1c6",
+            "parent_id": "ticket-login-012",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 12."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.020717439575986124,
+            "id": "31ea918f-bfd7-558e-873d-aaa4fbdb4364",
+            "parent_id": "ticket-login-019",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 19."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.022368651856331814,
+            "id": "2658693c-8698-57c5-b9d2-a2ca4a9be96f",
+            "parent_id": "ticket-login-011",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 11."
+          }
+        ]
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_summary",
+      "arguments": {
+        "result_id": "res_71af222322f7478cb92d0e54afde5ccd"
+      },
+      "result": {
+        "schema_version": "1.0",
+        "result_id": "res_71af222322f7478cb92d0e54afde5ccd",
+        "run_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "operation_id": "outliers",
+        "operation": "outliers",
+        "dataset_fingerprint": "0695603f88dc970fc5a814ef222e5176420fc2d9c69d502ce27f1f29605f04b5",
+        "scope": "sample",
+        "source": {
+          "collection": "vt_tickets",
+          "dimension": 4,
+          "distance": "Cosine",
+          "endpoint": "http://localhost:6333",
+          "kind": "qdrant",
+          "parent_field": "parent_id",
+          "source_name": "qdrant",
+          "text_field": "text",
+          "vector_field": "body"
+        },
+        "processed": 62,
+        "skipped": {
+          "invalid_vectors": 0,
+          "missing_ids": 0
+        },
+        "effective_parameters": {
+          "bootstrap": false,
+          "contamination": "auto",
+          "max_features": 1.0,
+          "max_samples": "auto",
+          "n_estimators": 100,
+          "n_jobs": 1,
+          "normalize": false,
+          "random_state": 42,
+          "score_transform": "anomaly_score = -score_samples; higher is more anomalous",
+          "verbose": 0,
+          "warm_start": false
+        },
+        "versions": {
+          "numpy": "2.5.3",
+          "scikit-learn": "1.9.1",
+          "vector-tools": "0.1.0"
+        },
+        "created_at": "2026-09-15T19:50:36.323602+00:00",
+        "summary_data": {
+          "flagged_count": 17,
+          "materialized_artifact_id": "data_c12ddbd5e4bb4eabbf95ab6e30851696",
+          "score_direction": "higher is more anomalous",
+          "selected_records": 62,
+          "source_read_count": 62,
+          "unique_parent_ids": 60,
+          "selection_context": {
+            "sample_n": 62,
+            "seed": 42,
+            "sample_population": "complete bounded selection",
+            "filter_count": 0
+          }
+        },
+        "backend": "local",
+        "count_unit": "vector_records",
+        "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_examples",
+      "arguments": {
+        "result_id": "res_71af222322f7478cb92d0e54afde5ccd"
+      },
+      "result": {
+        "result_id": "res_71af222322f7478cb92d0e54afde5ccd",
+        "examples": [
+          {
+            "anomaly_score": 0.7398785710028797,
+            "decision_function": -0.23987857100287968,
+            "id": "2c0d70d4-cecf-52bd-bc90-b036fbc4633b",
+            "parent_id": null,
+            "raw_score": -0.7398785710028797,
+            "text": "Unexpected device clock corruption and garbled export. Very confusing."
+          },
+          {
+            "anomaly_score": 0.7391866505637704,
+            "decision_function": -0.23918665056377042,
+            "id": "8f85da57-5847-58f6-90bf-bd6bbb4984ed",
+            "parent_id": null,
+            "raw_score": -0.7391866505637704,
+            "text": "Unexpected device clock corruption and garbled export. Very confusing."
+          },
+          {
+            "anomaly_score": 0.6280262914662584,
+            "decision_function": -0.12802629146625844,
+            "id": "18280a95-a39d-5882-aa69-c14c1466973e",
+            "parent_id": "ticket-billing-014",
+            "raw_score": -0.6280262914662584,
+            "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 14."
+          },
+          {
+            "anomaly_score": 0.5865357496640066,
+            "decision_function": -0.08653574966400657,
+            "id": "1edd37d6-ea94-5923-9dfd-7a1c38ab45ec",
+            "parent_id": "ticket-billing-018",
+            "raw_score": -0.5865357496640066,
+            "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 18."
+          },
+          {
+            "anomaly_score": 0.5676029089979401,
+            "decision_function": -0.06760290899794008,
+            "id": "17e0588e-e6a3-553b-aab1-046df4fcf6f1",
+            "parent_id": "ticket-login-014",
+            "raw_score": -0.5676029089979401,
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 14."
+          }
+        ]
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_summary",
+      "arguments": {
+        "result_id": "res_ad193de09b5d4e3ab187e0ad7d288f8c"
+      },
+      "result": {
+        "schema_version": "1.0",
+        "result_id": "res_ad193de09b5d4e3ab187e0ad7d288f8c",
+        "run_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "operation_id": "sentiment",
+        "operation": "sentiment",
+        "dataset_fingerprint": "0695603f88dc970fc5a814ef222e5176420fc2d9c69d502ce27f1f29605f04b5",
+        "scope": "sample",
+        "source": {
+          "collection": "vt_tickets",
+          "dimension": 4,
+          "distance": "Cosine",
+          "endpoint": "http://localhost:6333",
+          "kind": "qdrant",
+          "parent_field": "parent_id",
+          "source_name": "qdrant",
+          "text_field": "text",
+          "vector_field": "body"
+        },
+        "processed": 62,
+        "skipped": {
+          "invalid_vectors": 0,
+          "missing_ids": 0,
+          "missing_text": 0
+        },
+        "effective_parameters": {
+          "batch_size": 128,
+          "language": "English",
+          "lexicon_sha256": "1ec9c6e9ee19aade328f8beb393a6afa71a5bb3acf7d3cc22d4ef568df374bf5",
+          "model": "vader",
+          "model_version": "3.3.2",
+          "negative_threshold": -0.05,
+          "positive_threshold": 0.05,
+          "score_meaning": "compound in [-1,1]; pos/neu/neg lexicon proportions, not calibrated probabilities"
+        },
+        "versions": {
+          "numpy": "2.5.3",
+          "scikit-learn": "1.9.1",
+          "vaderSentiment": "3.3.2",
+          "vector-tools": "0.1.0"
+        },
+        "created_at": "2026-09-15T19:50:36.340210+00:00",
+        "summary_data": {
+          "by_cluster": {
+            "0": {
+              "denominator": 20,
+              "labels": {
+                "negative": 20
+              },
+              "mean_compound": -0.8439,
+              "missing_text": 0
+            },
+            "1": {
+              "denominator": 20,
+              "labels": {
+                "positive": 20
+              },
+              "mean_compound": 0.8998999999999999,
+              "missing_text": 0
+            },
+            "2": {
+              "denominator": 20,
+              "labels": {
+                "negative": 20
+              },
+              "mean_compound": -0.8519,
+              "missing_text": 0
+            },
+            "3": {
+              "denominator": 2,
+              "labels": {
+                "negative": 2
+              },
+              "mean_compound": -0.2944,
+              "missing_text": 0
+            }
+          },
+          "denominator": 62,
+          "labels": {
+            "negative": 42,
+            "positive": 20
+          },
+          "materialized_artifact_id": "data_c12ddbd5e4bb4eabbf95ab6e30851696",
+          "selected_records": 62,
+          "source_read_count": 62,
+          "unique_parent_ids": 60,
+          "selection_context": {
+            "sample_n": 62,
+            "seed": 42,
+            "sample_population": "complete bounded selection",
+            "filter_count": 0
+          }
+        },
+        "backend": "local",
+        "count_unit": "vector_records",
+        "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_examples",
+      "arguments": {
+        "result_id": "res_ad193de09b5d4e3ab187e0ad7d288f8c"
+      },
+      "result": {
+        "result_id": "res_ad193de09b5d4e3ab187e0ad7d288f8c",
+        "examples": [
+          {
+            "cluster_id": 2,
+            "id": "000c3b5b-023d-5400-b694-07cd4edc0cd2",
+            "label": "negative",
+            "parent_id": "ticket-billing-005",
+            "scores": {
+              "compound": -0.8519,
+              "neg": 0.563,
+              "neu": 0.437,
+              "pos": 0.0
+            },
+            "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 5."
+          },
+          {
+            "cluster_id": 2,
+            "id": "00bed6bc-e001-5890-ae8f-b6d01620a59b",
+            "label": "negative",
+            "parent_id": "ticket-billing-011",
+            "scores": {
+              "compound": -0.8519,
+              "neg": 0.563,
+              "neu": 0.437,
+              "pos": 0.0
+            },
+            "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 11."
+          },
+          {
+            "cluster_id": 2,
+            "id": "045bef76-cf2e-517e-9314-4ec23fc10119",
+            "label": "negative",
+            "parent_id": "ticket-billing-010",
+            "scores": {
+              "compound": -0.8519,
+              "neg": 0.563,
+              "neu": 0.437,
+              "pos": 0.0
+            },
+            "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 10."
+          },
+          {
+            "cluster_id": 0,
+            "id": "0d0de684-2230-5672-8c00-f87f8ca4b8c8",
+            "label": "negative",
+            "parent_id": "ticket-login-006",
+            "scores": {
+              "compound": -0.8439,
+              "neg": 0.565,
+              "neu": 0.435,
+              "pos": 0.0
+            },
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 6."
+          },
+          {
+            "cluster_id": 2,
+            "id": "0d0f7c10-ad16-5c73-b4bb-f1e1eb8a7f2a",
+            "label": "negative",
+            "parent_id": "ticket-billing-006",
+            "scores": {
+              "compound": -0.8519,
+              "neg": 0.563,
+              "neu": 0.437,
+              "pos": 0.0
+            },
+            "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 6."
+          }
+        ]
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_summary",
+      "arguments": {
+        "result_id": "res_c067510cc3c54e37a463350a24a10cec"
+      },
+      "result": {
+        "schema_version": "1.0",
+        "result_id": "res_c067510cc3c54e37a463350a24a10cec",
+        "run_id": "job_8acbe9814316415a8bdba58bae5f603a",
+        "operation_id": "themes",
+        "operation": "topics",
+        "dataset_fingerprint": "0695603f88dc970fc5a814ef222e5176420fc2d9c69d502ce27f1f29605f04b5",
+        "scope": "sample",
+        "source": {
+          "collection": "vt_tickets",
+          "dimension": 4,
+          "distance": "Cosine",
+          "endpoint": "http://localhost:6333",
+          "kind": "qdrant",
+          "parent_field": "parent_id",
+          "source_name": "qdrant",
+          "text_field": "text",
+          "vector_field": "body"
+        },
+        "processed": 62,
+        "skipped": {
+          "invalid_vectors": 0,
+          "missing_ids": 0,
+          "missing_text": 0
+        },
+        "effective_parameters": {
+          "max_features": 20000,
+          "representation": "ctfidf",
+          "stop_words": "english",
+          "top_n": 10,
+          "weighting": "L1 class term frequency * log(1 + mean class token count / total term frequency)"
+        },
+        "versions": {
+          "numpy": "2.5.3",
+          "scikit-learn": "1.9.1",
+          "vector-tools": "0.1.0"
+        },
+        "created_at": "2026-09-15T19:50:36.326798+00:00",
+        "summary_data": {
+          "clustering_result_id": "res_d1ac8bb49d12450bbe1318e6ece3b0d3",
+          "materialized_artifact_id": "data_c12ddbd5e4bb4eabbf95ab6e30851696",
+          "selected_records": 62,
+          "source_read_count": 62,
+          "topics": [
+            {
+              "cluster_id": 0,
+              "terms": [
+                {
+                  "term": "authentication",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "experience",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "fails",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "frustrating",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "login",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "password",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "reset",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "terrible",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "ticket",
+                  "weight": 0.1323698496056806
+                },
+                {
+                  "term": "10",
+                  "weight": 0.020728106914450102
+                }
+              ]
+            },
+            {
+              "cluster_id": 1,
+              "terms": [
+                {
+                  "term": "connection",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "excellent",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "fixed",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "helpful",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "issue",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "support",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "sync",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "thank",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "upload",
+                  "weight": 0.2043744078998732
+                },
+                {
+                  "term": "ticket",
+                  "weight": 0.11976319726228245
+                }
+              ]
+            },
+            {
+              "cluster_id": 2,
+              "terms": [
+                {
+                  "term": "awful",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "billing",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "charged",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "error",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "invoice",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "payment",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "twice",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "unhappy",
+                  "weight": 0.22588750346828093
+                },
+                {
+                  "term": "ticket",
+                  "weight": 0.1323698496056806
+                },
+                {
+                  "term": "10",
+                  "weight": 0.020728106914450102
+                }
+              ]
+            },
+            {
+              "cluster_id": 3,
+              "terms": [
+                {
+                  "term": "clock",
+                  "weight": 0.6196129629760699
+                },
+                {
+                  "term": "confusing",
+                  "weight": 0.6196129629760699
+                },
+                {
+                  "term": "corruption",
+                  "weight": 0.6196129629760699
+                },
+                {
+                  "term": "device",
+                  "weight": 0.6196129629760699
+                },
+                {
+                  "term": "export",
+                  "weight": 0.6196129629760699
+                },
+                {
+                  "term": "garbled",
+                  "weight": 0.6196129629760699
+                },
+                {
+                  "term": "unexpected",
+                  "weight": 0.6196129629760699
+                }
+              ]
+            }
+          ],
+          "unique_parent_ids": 60,
+          "vocabulary_status": "ok",
+          "selection_context": {
+            "sample_n": 62,
+            "seed": 42,
+            "sample_population": "complete bounded selection",
+            "filter_count": 0
+          },
+          "topic_groups_total": 4,
+          "topic_groups_shown": 4
+        },
+        "backend": "local",
+        "count_unit": "vector_records",
+        "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+      },
+      "is_error": false
+    },
+    {
+      "tool": "get_examples",
+      "arguments": {
+        "result_id": "res_c067510cc3c54e37a463350a24a10cec"
+      },
+      "result": {
+        "result_id": "res_c067510cc3c54e37a463350a24a10cec",
+        "examples": [
+          {
+            "cluster_id": 0,
+            "distance": 0.01313500499521749,
+            "id": "0d0de684-2230-5672-8c00-f87f8ca4b8c8",
+            "parent_id": "ticket-login-006",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 6."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.015435303308594097,
+            "id": "d9f3e4eb-dadb-577a-a2c8-f58492dfeeea",
+            "parent_id": "ticket-login-015",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 15."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.015662680037233482,
+            "id": "548c5219-6643-58e6-b5ab-4bd55fc5a1c6",
+            "parent_id": "ticket-login-012",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 12."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.020717439575986124,
+            "id": "31ea918f-bfd7-558e-873d-aaa4fbdb4364",
+            "parent_id": "ticket-login-019",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 19."
+          },
+          {
+            "cluster_id": 0,
+            "distance": 0.022368651856331814,
+            "id": "2658693c-8698-57c5-b9d2-a2ca4a9be96f",
+            "parent_id": "ticket-login-011",
+            "text": "Login authentication password reset fails. Terrible frustrating experience! Ticket 11."
+          }
+        ]
+      },
+      "is_error": false
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+.venv
+.git
+work
+.vector-ml
+__pycache__
+.pytest_cache
+.env
+
+demo-output

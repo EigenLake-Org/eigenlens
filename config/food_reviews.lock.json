@@ -1,0 +1,10 @@
+{
+  "url": "https://raw.githubusercontent.com/openai/openai-cookbook/f1e13cfcc7e0f2a9015c562eede167b76b1d60fc/examples/data/fine_food_reviews_with_embeddings_1k.csv",
+  "commit": "f1e13cfcc7e0f2a9015c562eede167b76b1d60fc",
+  "sha256": "4722b4c7eeba136f050107ee9098d447fb67c4fbdcaa603f03651b268ce59ed6",
+  "bytes": 35046315,
+  "expected_rows": 1000,
+  "dimensions": 1536,
+  "embedding_provider": "OpenAI",
+  "embedding_model": "not explicitly recorded in the CSV"
+}

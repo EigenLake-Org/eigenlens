@@ -1,0 +1,648 @@
+{
+  "clusters": {
+    "summary": {
+      "schema_version": "1.0",
+      "result_id": "res_6e5133acd98e4e6caf221f146b59d0e4",
+      "run_id": "run_651f2f301c424920aa502d14fd03157b",
+      "operation_id": "clusters",
+      "operation": "cluster",
+      "dataset_fingerprint": "7f09888a6611f5e853a38724c192ac573a477cfbb2dc38c5f04290a96a0051da",
+      "scope": "complete_selection",
+      "source": {
+        "kind": "memory",
+        "name": "synthetic-support-tickets",
+        "embedding_provenance": "caller supplied"
+      },
+      "processed": 62,
+      "skipped": {
+        "missing_ids": 0,
+        "invalid_vectors": 0
+      },
+      "effective_parameters": {
+        "batch_size": 1024,
+        "compute_labels": true,
+        "init": "k-means++",
+        "init_size": null,
+        "max_iter": 100,
+        "max_no_improvement": 10,
+        "n_clusters": 4,
+        "n_init": 3,
+        "random_state": 42,
+        "reassignment_ratio": 0.01,
+        "tol": 0.0,
+        "verbose": 0,
+        "normalize": false,
+        "distance_assumption": "Euclidean on supplied embeddings"
+      },
+      "versions": {
+        "vector-tools": "0.1.0",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1"
+      },
+      "created_at": "2026-09-15T19:55:21.234734+00:00",
+      "summary_data": {
+        "selected_records": 62,
+        "unique_parent_ids": 60,
+        "source_read_count": 62,
+        "selection": {
+          "schema_version": "1.0",
+          "ids": null,
+          "filters": [],
+          "sample_n": null,
+          "seed": 42
+        },
+        "cluster_sizes": {
+          "0": 20,
+          "1": 2,
+          "2": 20,
+          "3": 20
+        },
+        "centroids": [
+          [
+            -0.01574194988917246,
+            0.03863663743181656,
+            5.006194934210883,
+            -0.02287397811881943
+          ],
+          [
+            25.615384615384617,
+            -25.615384615384617,
+            30.615384615384617,
+            40.61538461538462
+          ],
+          [
+            -0.019398217859045726,
+            4.9730802099610445,
+            -0.011823320909448314,
+            -0.013575529915030004
+          ],
+          [
+            4.970760683883364,
+            -0.011863724415094748,
+            0.03950464506914258,
+            0.023226867210026786
+          ]
+        ],
+        "inertia": 6.3301019634312485
+      },
+      "backend": "local",
+      "count_unit": "vector_records",
+      "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+    },
+    "examples": [
+      {
+        "id": "sync-015",
+        "parent_id": "ticket-sync-015",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 15.",
+        "cluster_id": 0,
+        "distance": 0.1423890109057182
+      },
+      {
+        "id": "sync-002",
+        "parent_id": "ticket-sync-002",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 2.",
+        "cluster_id": 0,
+        "distance": 0.14500406453446063
+      },
+      {
+        "id": "sync-009",
+        "parent_id": "ticket-sync-009",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 9.",
+        "cluster_id": 0,
+        "distance": 0.14906180092972365
+      },
+      {
+        "id": "sync-014",
+        "parent_id": "ticket-sync-014",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 14.",
+        "cluster_id": 0,
+        "distance": 0.2074786733835461
+      },
+      {
+        "id": "sync-018",
+        "parent_id": "ticket-sync-018",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 18.",
+        "cluster_id": 0,
+        "distance": 0.20791306442544247
+      }
+    ]
+  },
+  "topics": {
+    "summary": {
+      "schema_version": "1.0",
+      "result_id": "res_f0c3b07e4a444755afa6e61d4fd395ac",
+      "run_id": "run_b1886f4f2f444e0bb2d54838532e6ae6",
+      "operation_id": "topics",
+      "operation": "topics",
+      "dataset_fingerprint": "7f09888a6611f5e853a38724c192ac573a477cfbb2dc38c5f04290a96a0051da",
+      "scope": "complete_selection",
+      "source": {
+        "kind": "memory",
+        "name": "synthetic-support-tickets",
+        "embedding_provenance": "caller supplied"
+      },
+      "processed": 62,
+      "skipped": {
+        "missing_ids": 0,
+        "invalid_vectors": 0,
+        "missing_text": 0
+      },
+      "effective_parameters": {
+        "representation": "ctfidf",
+        "top_n": 10,
+        "stop_words": "english",
+        "max_features": 20000,
+        "weighting": "L1 class term frequency * log(1 + mean class token count / total term frequency)"
+      },
+      "versions": {
+        "vector-tools": "0.1.0",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1"
+      },
+      "created_at": "2026-09-15T19:55:21.241612+00:00",
+      "summary_data": {
+        "selected_records": 62,
+        "unique_parent_ids": 60,
+        "source_read_count": 62,
+        "selection": {
+          "schema_version": "1.0",
+          "ids": null,
+          "filters": [],
+          "sample_n": null,
+          "seed": 42
+        },
+        "topics": [
+          {
+            "cluster_id": 0,
+            "terms": [
+              {
+                "term": "connection",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "excellent",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "fixed",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "helpful",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "issue",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "support",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "sync",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "thank",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "upload",
+                "weight": 0.2043744078998732
+              },
+              {
+                "term": "ticket",
+                "weight": 0.11976319726228245
+              }
+            ]
+          },
+          {
+            "cluster_id": 1,
+            "terms": [
+              {
+                "term": "clock",
+                "weight": 0.6196129629760699
+              },
+              {
+                "term": "confusing",
+                "weight": 0.6196129629760699
+              },
+              {
+                "term": "corruption",
+                "weight": 0.6196129629760699
+              },
+              {
+                "term": "device",
+                "weight": 0.6196129629760699
+              },
+              {
+                "term": "export",
+                "weight": 0.6196129629760699
+              },
+              {
+                "term": "garbled",
+                "weight": 0.6196129629760699
+              },
+              {
+                "term": "unexpected",
+                "weight": 0.6196129629760699
+              }
+            ]
+          },
+          {
+            "cluster_id": 2,
+            "terms": [
+              {
+                "term": "awful",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "billing",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "charged",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "error",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "invoice",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "payment",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "twice",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "unhappy",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "ticket",
+                "weight": 0.1323698496056806
+              },
+              {
+                "term": "10",
+                "weight": 0.020728106914450102
+              }
+            ]
+          },
+          {
+            "cluster_id": 3,
+            "terms": [
+              {
+                "term": "authentication",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "experience",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "fails",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "frustrating",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "login",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "password",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "reset",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "terrible",
+                "weight": 0.22588750346828093
+              },
+              {
+                "term": "ticket",
+                "weight": 0.1323698496056806
+              },
+              {
+                "term": "10",
+                "weight": 0.020728106914450102
+              }
+            ]
+          }
+        ],
+        "vocabulary_status": "ok",
+        "clustering_result_id": "res_6e5133acd98e4e6caf221f146b59d0e4"
+      },
+      "backend": "local",
+      "count_unit": "vector_records",
+      "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+    },
+    "examples": [
+      {
+        "id": "sync-015",
+        "parent_id": "ticket-sync-015",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 15.",
+        "cluster_id": 0,
+        "distance": 0.1423890109057182
+      },
+      {
+        "id": "sync-002",
+        "parent_id": "ticket-sync-002",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 2.",
+        "cluster_id": 0,
+        "distance": 0.14500406453446063
+      },
+      {
+        "id": "sync-009",
+        "parent_id": "ticket-sync-009",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 9.",
+        "cluster_id": 0,
+        "distance": 0.14906180092972365
+      },
+      {
+        "id": "sync-014",
+        "parent_id": "ticket-sync-014",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 14.",
+        "cluster_id": 0,
+        "distance": 0.2074786733835461
+      },
+      {
+        "id": "sync-018",
+        "parent_id": "ticket-sync-018",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 18.",
+        "cluster_id": 0,
+        "distance": 0.20791306442544247
+      }
+    ]
+  },
+  "sentiment": {
+    "summary": {
+      "schema_version": "1.0",
+      "result_id": "res_4a2842fad26d41dc8a5f6784078c5a17",
+      "run_id": "run_02a84528b23b4a8a9cd7ecc9548bcd34",
+      "operation_id": "sentiment",
+      "operation": "sentiment",
+      "dataset_fingerprint": "7f09888a6611f5e853a38724c192ac573a477cfbb2dc38c5f04290a96a0051da",
+      "scope": "complete_selection",
+      "source": {
+        "kind": "memory",
+        "name": "synthetic-support-tickets",
+        "embedding_provenance": "caller supplied"
+      },
+      "processed": 62,
+      "skipped": {
+        "missing_ids": 0,
+        "invalid_vectors": 0,
+        "missing_text": 0
+      },
+      "effective_parameters": {
+        "model": "vader",
+        "batch_size": 128,
+        "positive_threshold": 0.05,
+        "negative_threshold": -0.05,
+        "model_version": "3.3.2",
+        "lexicon_sha256": "1ec9c6e9ee19aade328f8beb393a6afa71a5bb3acf7d3cc22d4ef568df374bf5",
+        "score_meaning": "compound in [-1,1]; pos/neu/neg lexicon proportions, not calibrated probabilities",
+        "language": "English"
+      },
+      "versions": {
+        "vector-tools": "0.1.0",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1",
+        "vaderSentiment": "3.3.2"
+      },
+      "created_at": "2026-09-15T19:55:21.256165+00:00",
+      "summary_data": {
+        "selected_records": 62,
+        "unique_parent_ids": 60,
+        "source_read_count": 62,
+        "selection": {
+          "schema_version": "1.0",
+          "ids": null,
+          "filters": [],
+          "sample_n": null,
+          "seed": 42
+        },
+        "labels": {
+          "negative": 42,
+          "positive": 20
+        },
+        "denominator": 62,
+        "by_cluster": {
+          "0": {
+            "denominator": 20,
+            "missing_text": 0,
+            "labels": {
+              "positive": 20
+            },
+            "mean_compound": 0.8998999999999999
+          },
+          "1": {
+            "denominator": 2,
+            "missing_text": 0,
+            "labels": {
+              "negative": 2
+            },
+            "mean_compound": -0.2944
+          },
+          "2": {
+            "denominator": 20,
+            "missing_text": 0,
+            "labels": {
+              "negative": 20
+            },
+            "mean_compound": -0.8519
+          },
+          "3": {
+            "denominator": 20,
+            "missing_text": 0,
+            "labels": {
+              "negative": 20
+            },
+            "mean_compound": -0.8439
+          }
+        }
+      },
+      "backend": "local",
+      "count_unit": "vector_records",
+      "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+    },
+    "examples": [
+      {
+        "id": "billing-000",
+        "parent_id": "ticket-billing-000",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 0.",
+        "label": "negative",
+        "scores": {
+          "neg": 0.563,
+          "neu": 0.437,
+          "pos": 0.0,
+          "compound": -0.8519
+        },
+        "cluster_id": 2
+      },
+      {
+        "id": "billing-001",
+        "parent_id": "ticket-billing-001",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 1.",
+        "label": "negative",
+        "scores": {
+          "neg": 0.563,
+          "neu": 0.437,
+          "pos": 0.0,
+          "compound": -0.8519
+        },
+        "cluster_id": 2
+      },
+      {
+        "id": "billing-002",
+        "parent_id": "ticket-billing-002",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 2.",
+        "label": "negative",
+        "scores": {
+          "neg": 0.563,
+          "neu": 0.437,
+          "pos": 0.0,
+          "compound": -0.8519
+        },
+        "cluster_id": 2
+      },
+      {
+        "id": "billing-003",
+        "parent_id": "ticket-billing-003",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 3.",
+        "label": "negative",
+        "scores": {
+          "neg": 0.563,
+          "neu": 0.437,
+          "pos": 0.0,
+          "compound": -0.8519
+        },
+        "cluster_id": 2
+      },
+      {
+        "id": "billing-004",
+        "parent_id": "ticket-billing-004",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 4.",
+        "label": "negative",
+        "scores": {
+          "neg": 0.563,
+          "neu": 0.437,
+          "pos": 0.0,
+          "compound": -0.8519
+        },
+        "cluster_id": 2
+      }
+    ]
+  },
+  "outliers": {
+    "summary": {
+      "schema_version": "1.0",
+      "result_id": "res_8da07c2de96d450880d76da66e6f8bcd",
+      "run_id": "run_1d48e2c78a3b476a9e84edb384dc3b69",
+      "operation_id": "outliers",
+      "operation": "outliers",
+      "dataset_fingerprint": "7f09888a6611f5e853a38724c192ac573a477cfbb2dc38c5f04290a96a0051da",
+      "scope": "complete_selection",
+      "source": {
+        "kind": "memory",
+        "name": "synthetic-support-tickets",
+        "embedding_provenance": "caller supplied"
+      },
+      "processed": 62,
+      "skipped": {
+        "missing_ids": 0,
+        "invalid_vectors": 0
+      },
+      "effective_parameters": {
+        "bootstrap": false,
+        "contamination": "auto",
+        "max_features": 1.0,
+        "max_samples": "auto",
+        "n_estimators": 100,
+        "n_jobs": null,
+        "random_state": 42,
+        "verbose": 0,
+        "warm_start": false,
+        "normalize": false,
+        "score_transform": "anomaly_score = -score_samples; higher is more anomalous"
+      },
+      "versions": {
+        "vector-tools": "0.1.0",
+        "numpy": "2.5.3",
+        "scikit-learn": "1.9.1"
+      },
+      "created_at": "2026-09-15T19:55:21.342136+00:00",
+      "summary_data": {
+        "selected_records": 62,
+        "unique_parent_ids": 60,
+        "source_read_count": 62,
+        "selection": {
+          "schema_version": "1.0",
+          "ids": null,
+          "filters": [],
+          "sample_n": null,
+          "seed": 42
+        },
+        "flagged_count": 9,
+        "score_direction": "higher is more anomalous"
+      },
+      "backend": "local",
+      "count_unit": "vector_records",
+      "aggregation_policy": "No parent-ticket deduplication; every vector record counts once."
+    },
+    "examples": [
+      {
+        "id": "unusual-1",
+        "parent_id": null,
+        "text": "Unexpected device clock corruption and garbled export. Very confusing.",
+        "raw_score": -0.8185486980517425,
+        "anomaly_score": 0.8185486980517425,
+        "decision_function": -0.31854869805174246
+      },
+      {
+        "id": "unusual-0",
+        "parent_id": null,
+        "text": "Unexpected device clock corruption and garbled export. Very confusing.",
+        "raw_score": -0.8132052692008725,
+        "anomaly_score": 0.8132052692008725,
+        "decision_function": -0.31320526920087255
+      },
+      {
+        "id": "billing-014",
+        "parent_id": "ticket-billing-014",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 14.",
+        "raw_score": -0.5962351309300342,
+        "anomaly_score": 0.5962351309300342,
+        "decision_function": -0.09623513093003422
+      },
+      {
+        "id": "sync-016",
+        "parent_id": "ticket-sync-016",
+        "text": "Sync upload connection issue fixed. Excellent helpful support, thank you! Ticket 16.",
+        "raw_score": -0.5384222192195651,
+        "anomaly_score": 0.5384222192195651,
+        "decision_function": -0.038422219219565124
+      },
+      {
+        "id": "billing-018",
+        "parent_id": "ticket-billing-018",
+        "text": "Billing invoice payment charged twice. Unhappy with this awful error. Ticket 18.",
+        "raw_score": -0.535158926075454,
+        "anomaly_score": 0.535158926075454,
+        "decision_function": -0.03515892607545401
+      }
+    ]
+  }
+}
