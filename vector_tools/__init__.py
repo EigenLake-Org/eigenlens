@@ -2,7 +2,9 @@
 from .datasets import Dataset, Materialized
 from .schemas import Record, Predicate, Limits, Operation, Result, VTError
 from .sources import InMemory, Qdrant, Weaviate, Pgvector, Pinecone
-from .operators import cluster, topics, sentiment, outliers
+from .operators import cluster, topics, sentiment, outliers, drift, novelty, flow
+from .temporal import TemporalFrame, clear_frame_cache, get_frame
+from .evidence import EVIDENCE_VERSION, render_evidence, render_result
 from .backends import LocalBackend
 
 __version__ = "0.1.0"

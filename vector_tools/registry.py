@@ -6,6 +6,12 @@ REGISTRY = {
     "topics": {"algorithm": "ctfidf", "fields": {"text"}, "params": {"top_n", "stop_words"}},
     "sentiment": {"algorithm": "vader", "fields": {"text"}, "params": {"batch_size", "positive_threshold", "negative_threshold"}},
     "outliers": {"algorithm": "isolation_forest", "fields": {"vector"}, "params": {"n_estimators", "random_state", "max_samples", "contamination", "normalize"}},
+    "drift": {"algorithm": "bucket_cosine_drift", "fields": {"vector"}, "params": {"time_field", "bucket", "normalize", "min_bucket_n"},
+              "temporal": True, "frame_params": {"time_field", "bucket", "normalize", "min_bucket_n"}},
+    "novelty": {"algorithm": "past_centroid_novelty", "fields": {"vector"}, "params": {"time_field", "bucket", "normalize", "min_bucket_n"},
+                "temporal": True, "frame_params": {"time_field", "bucket", "normalize", "min_bucket_n"}},
+    "flow": {"algorithm": "cluster_histogram_flow", "fields": {"vector"}, "params": {"time_field", "bucket", "min_bucket_n"},
+             "temporal": True, "frame_params": {"time_field", "bucket", "min_bucket_n"}},
 }
 
 def plan(operations, backend="auto", limits=None):
@@ -27,9 +33,11 @@ def plan(operations, backend="auto", limits=None):
             raise VTError(f"Unsupported parameters for {o.type}: {sorted(invalid)}")
         if o.type == "topics" and not o.clusters_from:
             raise VTError("Topics require clusters_from referencing a cluster operation")
+        if o.type == "flow" and not o.clusters_from:
+            raise VTError("Flow requires clusters_from referencing a cluster operation")
         if o.clusters_from:
-            if o.type not in {"topics", "sentiment"}:
-                raise VTError("Only topics and sentiment accept clusters_from")
+            if o.type not in {"topics", "sentiment", "flow"}:
+                raise VTError("Only topics, sentiment and flow accept clusters_from")
             if o.clusters_from not in by_id or by_id[o.clusters_from].type != "cluster":
                 raise VTError("clusters_from must reference a cluster operation in this plan")
         if o.representation and o.type != "topics":

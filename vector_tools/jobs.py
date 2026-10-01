@@ -12,6 +12,7 @@ from .datasets import Dataset
 from .schemas import Selection, VTError
 from .sources import InMemory
 from .backends import LocalBackend
+from .evidence import EVIDENCE_VERSION, render_evidence
 from .registry import REGISTRY, plan
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
@@ -50,6 +51,17 @@ def worker(root, config_path, job_id, owner):
             result.summary_data["materialized_artifact_id"] = stage_id
             store.put(owner, "res", result.model_dump(), result.result_id)
             refs[op_id] = result.result_id
+        if any(o.type in {"drift", "novelty", "flow"} for o in ordered):
+            # Persist the LLM-ready evidence pack alongside the results so
+            # polling clients get one grounded artifact, not raw rows.
+            try:
+                pack = render_evidence(results)
+                payload = {"schema_version": "1.0", "evidence_version": EVIDENCE_VERSION,
+                           "job_id": job_id, "text": pack}
+            except VTError as exc:
+                payload = {"schema_version": "1.0", "evidence_version": EVIDENCE_VERSION,
+                           "job_id": job_id, "error": str(exc)}
+            refs["evidence"] = store.put(owner, "evd", payload)
         store.update_job(job_id, "succeeded", refs)
     except BaseException as exc:
         # Source/driver exceptions can contain credentials; only controlled errors are exposed.

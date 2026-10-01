@@ -11,6 +11,7 @@ from .datasets import canonical, Dataset
 from .schemas import Selection, Execution, Result, Record, VTError
 from .registry import plan, REGISTRY
 from .backends import LocalBackend, SPARK_CAPABILITIES
+from .evidence import EVIDENCE_VERSION, render_evidence, render_result
 from .operators import VaderModel
 from .jobs import Supervisor
 
@@ -151,6 +152,10 @@ class Service:
         if "centroids" in summary["summary_data"]:
             centers = summary["summary_data"].pop("centroids")
             summary["summary_data"]["centroid_shape"] = [len(centers), len(centers[0]) if centers else 0]
+        if "centroid_similarity" in summary["summary_data"]:
+            sim = summary["summary_data"]["centroid_similarity"]
+            summary["summary_data"]["centroid_similarity"] = {"keys": sim.get("keys", []),
+                "matrix_shape": [len(sim.get("matrix", [])), len(sim.get("matrix", [[]])[0]) if sim.get("matrix") else 0]}
         selection = summary["summary_data"].pop("selection", {})
         summary["summary_data"]["selection_context"] = {
             "sample_n": selection.get("sample_n"), "seed": selection.get("seed"),
@@ -165,6 +170,25 @@ class Service:
         return summary
     def get_examples(self, owner, result_id, cluster_id=None, limit=5):
         return {"result_id": result_id, "examples": self.result(owner, result_id).examples(cluster_id, limit)}
+    def get_evidence(self, owner, result_id, max_chars=12000):
+        """LLM-ready evidence pack for one stored result (evidence/1.0)."""
+        if not 1 <= max_chars <= 100000:
+            raise VTError("max_chars must be 1..100000")
+        result = self.result(owner, result_id)
+        try:
+            text = "\n".join(render_result(result))
+        except VTError as exc:
+            return {"result_id": result_id, "evidence_version": EVIDENCE_VERSION, "error": str(exc)}
+        if len(text) > max_chars:
+            text = text[:max_chars] + "\n[truncated]"
+        return {"result_id": result_id, "evidence_version": EVIDENCE_VERSION, "text": text}
+    def get_job_evidence(self, owner, job_id):
+        """Evidence artifact persisted for a temporal job (see jobs.worker)."""
+        job = self.store.job(owner, job_id)
+        evd_id = (job["results"] or {}).get("evidence")
+        if not evd_id:
+            raise VTError("Job has no evidence artifact; run drift, novelty or flow first")
+        return self.store.get(owner, evd_id, "evd")
     def get_result_page(self, owner, result_id, cursor=None, limit=100):
         if not 1 <= limit <= 1000:
             raise VTError("limit must be 1..1000")

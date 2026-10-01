@@ -59,10 +59,13 @@ sequenceDiagram
 
 - **Source adapters:** scoped identity, stored-vector retrieval, ID fetch, batch iteration and capability reporting. PostgreSQL pushes common filters into SQL; other adapters use the shared predicate evaluator over bounded reads.
 - **Dataset layer:** immutable lazy selections, deterministic sampling, record alignment, row/byte limits, Arrow conversion and execution-time fingerprints.
-- **Registry/planner:** typed operation specifications, unique IDs, supported parameters, dependencies, resource settings and backend validation. A whole plan uses one local backend.
+- **Registry/planner:** typed operation specifications, unique IDs, supported parameters, dependencies, resource settings and backend validation. A whole plan uses one local backend. Temporal ops (`drift`, `novelty`, `flow`) declare `temporal: True` plus `frame_params`; the backend builds one shared `TemporalFrame` per bucketing so every temporal op in a plan sees identical bucket assignment.
+- **Temporal frames:** `TemporalFrame` (`vector_tools/temporal.py`) is bucketing computed once per dataset: ISO day/week/month labels, small-bucket filtering, edge flags, and one embedding matrix. Content-addressed by dataset fingerprint with a bounded in-process cache. New temporal ops take `(data, frame, **params)` and only implement their math.
+- **Evidence packs:** `render_evidence` (`vector_tools/evidence.py`, format `evidence/1.0`) renders op results into citation-keyed LLM context. Renderers assert non-degeneracy (novelty needs record text, flow needs positive shares) and raise `VTError` instead of emitting misleading packs. Workers persist an `evd` artifact for temporal jobs; `get_evidence` (SDK, service, MCP) renders single results on demand.
+- **Public interfaces:** SDK methods and official-MCP-SDK tools call the shared implementations.
 - **Execution:** transport-independent operators with JSON result contracts. `LocalBackend.execute` is synchronous; the service supervisor provides the asynchronous lifecycle around it.
 - **Persistence:** SQLite WAL stores principal-scoped handles and jobs. JSON files store dataset plans, staged selected content and immutable full results. Atomic file replacement precedes metadata publication.
-- **Public interfaces:** SDK methods and ten official-MCP-SDK tools call the shared implementations.
+- **Public interfaces:** SDK methods and official-MCP-SDK tools call the shared implementations.
 
 ## Worker lifecycle and durability
 
@@ -90,6 +93,9 @@ Credentials stay in configured service connections. Models receive no full embed
 | c-TF-IDF | Implemented and tested | Unimplemented distributed term aggregation |
 | VADER | Implemented and tested | Unimplemented partition inference |
 | IsolationForest | Implemented and tested | Unimplemented; requires an explicitly installed distributed algorithm |
+| Bucket cosine drift | Implemented and tested | Unimplemented distributed centroid aggregation |
+| Past-centroid novelty | Implemented and tested | Unimplemented distributed similarity scan |
+| Cluster histogram flow | Implemented and tested | Unimplemented distributed term aggregation |
 | Job lifecycle | Service supervisor and SQLite | Extension protocol only |
 | Partition input | Arrow-compatible table export | Partition contract only |
 

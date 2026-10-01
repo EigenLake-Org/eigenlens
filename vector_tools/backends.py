@@ -3,6 +3,7 @@ from typing import Protocol
 from dataclasses import dataclass
 import uuid
 from .registry import plan, REGISTRY
+from .temporal import get_frame
 from . import operators
 
 @dataclass(frozen=True)
@@ -33,10 +34,23 @@ class LocalBackend:
             raise VTError("Empty selection: no records to analyze")
         run_id = run_id or "run_" + uuid.uuid4().hex
         results = {}
+        frames = {}
         for op in ordered:
             kwargs = {"op_id": op.id, "run_id": run_id, **op.parameters.supplied()}
             if op.clusters_from:
                 kwargs["clusters"] = results[op.clusters_from]
+            spec = REGISTRY[op.type]
+            if spec.get("temporal"):
+                # Every temporal op in one plan shares a single TemporalFrame per
+                # bucketing: identical bucket assignment, one embedding matrix.
+                normalize = op.parameters.normalize
+                if "normalize" not in spec.get("frame_params", ()):
+                    normalize = False
+                key = (op.parameters.time_field or "published_at", op.parameters.bucket or "month",
+                       op.parameters.min_bucket_n or 5, True if normalize is None else bool(normalize))
+                if key not in frames:
+                    frames[key] = get_frame(data, key[0], key[1], key[2], key[3])
+                kwargs["frame"] = frames[key]
             if op.type == "sentiment":
                 kwargs["model"] = op.model or "configured-default"
             results[op.id] = getattr(operators, op.type)(data, **kwargs)

@@ -73,6 +73,10 @@ def build_server(service, host="127.0.0.1", port=8000):
     async def get_result_page(result_id: str, cursor: str | None = None, limit: int = 100) -> dict:
         """Page record assignments, sentiment scores, topic terms or ranked outliers. Cursor is bound to this immutable result."""
         return await invoke("get_result_page", result_id, cursor, limit)
+    @server.tool()
+    async def get_evidence(result_id: str, max_chars: int = 12000) -> dict:
+        """Get an LLM-ready evidence pack for one result (evidence/1.0). Degenerate output returns an error field, not misleading text."""
+        return await invoke("get_evidence", result_id, max_chars)
     @server.custom_route("/health", methods=["GET"])
     async def health(request):
         return JSONResponse({"status": "ok", "server_version": "0.1.0", "supervisor_alive": service.supervisor.thread.is_alive()})

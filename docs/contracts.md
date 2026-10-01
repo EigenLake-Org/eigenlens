@@ -2,7 +2,7 @@
 
 ## Portable requests
 
-Schemas use Pydantic with unknown fields rejected and `schema_version: "1.0"`. Operations accept installed algorithm names and typed JSON parameters; remote requests cannot supply Python estimators, import paths or executable code. A plan has 1–16 uniquely named operations. Dependencies are validated and ordered before launching a worker. Topics require a cluster dependency; sentiment may aggregate by a cluster dependency.
+Schemas use Pydantic with unknown fields rejected and `schema_version: "1.0"`. Operations accept installed algorithm names and typed JSON parameters; remote requests cannot supply Python estimators, import paths or executable code. A plan has 1–16 uniquely named operations. Dependencies are validated and ordered before launching a worker. Topics require a cluster dependency; sentiment may aggregate by a cluster dependency; flow requires a cluster dependency.
 
 ```json
 {
@@ -11,7 +11,10 @@ Schemas use Pydantic with unknown fields rejected and `schema_version: "1.0"`. O
     {"id": "groups", "type": "cluster", "algorithm": "minibatch_kmeans", "parameters": {"n_clusters": 30, "random_state": 42}},
     {"id": "themes", "type": "topics", "clusters_from": "groups", "representation": "ctfidf"},
     {"id": "mood", "type": "sentiment", "model": "configured-default", "clusters_from": "groups"},
-    {"id": "odd", "type": "outliers", "algorithm": "isolation_forest"}
+      {"id": "odd", "type": "outliers", "algorithm": "isolation_forest"},
+      {"id": "shift", "type": "drift", "parameters": {"time_field": "published_at", "bucket": "month"}},
+      {"id": "new", "type": "novelty", "parameters": {"time_field": "published_at", "bucket": "month"}},
+      {"id": "mix", "type": "flow", "clusters_from": "groups", "parameters": {"time_field": "published_at"}}
   ],
   "execution": {"mode": "async", "backend": "auto"},
   "idempotency_key": "application-generated-stable-key"
@@ -48,13 +51,31 @@ Missing/blank text is skipped. Cluster aggregates report the count of scored vec
 
 IsolationForest preserves `score_samples` as `raw_score` and publishes `anomaly_score = -raw_score`. Higher public scores mean more anomalous. Results also retain `decision_function`; negative values count as flagged by the fitted threshold. Rows sort by descending anomaly score, then record ID. Default seed is 42 and service inference uses one local job; `normalize` is explicit. Exact `IsolationForest` instances are accepted in the direct Python convenience method.
 
+### Temporal drift
+
+`bucket_cosine_drift` answers "did meaning move, and did volume burst?". Records are bucketed by a metadata time field (default `published_at`; accepts ISO strings, `YYYY-MM-DD HH:MM:SS`, epoch seconds/ms, datetime/date objects) into `day`, `week` (ISO) or `month` buckets (default `month`). Each bucket's L2-normalized centroid is computed (`normalize=true` by default, so `Dot == cosine`).
+
+Per-bucket rows report `n`, `cohesion` (mean cosine to centroid), `drift_prev` (`1 - cosine` vs previous bucket), `drift_first` (vs first bucket), `volume_z` and `burst` (`z > 1.5`). Buckets below `min_bucket_n` (default 5) are excluded and counted in `skipped`; records without parsable time are counted in `skipped.missing_time`. At least two surviving buckets are required. First/last buckets are flagged `edge_bucket` since partial time coverage inflates drift. Full centroids stay in the result artifact rows; MCP summaries keep only the shape plus the centroid similarity matrix.
+
+### Temporal novelty
+
+`past_centroid_novelty` answers "what is new relative to history?". Using the same bucketing, each record in a non-first bucket scores `novelty = 1 - max cosine(record, past bucket centroids)`; rows sort by descending novelty with deterministic ID tie-breaks. Summaries report global and per-bucket `p50/p90`. Records in the earliest bucket have no history and are counted in `skipped.no_history`. Centroid novelty is high by construction on diffuse corpora (cohesion ~0.40 implies novelty ~0.60 baseline), so triage by rank and combine with cluster/time-concentration to separate perennial outliers from emerging topics.
+
+### Cluster flow
+
+`cluster_histogram_flow` answers "which groups grew or shrank?". It requires `clusters_from` and stratifies the cluster histogram per time bucket. Rows report `histogram`, `jsd_vs_prev` (base-2 Jensen-Shannon divergence in `[0,1]`), `largest_cluster` and `largest_share`. Small/undated buckets follow the same skip rules as drift. Fingerprint and record-ID coverage must match the clustering result.
+
 ## Result contracts
 
 Each `Result` contains its result ID, run/job ID, operation ID/type, dataset fingerprint, source identity, scope, processed/skipped counts, effective parameters, package versions, timestamp, backend, summary, full rows and selected text examples. Full outputs are plain JSON; no sklearn or Spark classes appear in public schemas.
 
 All counts refer to vector records. Parent IDs are retained and unique non-null parent counts are reported for context, but there is no implicit parent-ticket aggregation. Missing requested IDs are skipped and counted. Invalid or missing vectors required by an operation, incompatible dimensions and non-finite numbers reject execution. Text-only sentiment can operate on records without embeddings. Empty jobs fail explicitly; direct `.materialize()` may return an empty dataset for inspection.
 
-`get_summary` returns compact evidence; `get_examples` returns 1–100 examples with text truncated to 1,000 characters; `get_result_page` returns up to 1,000 output rows. Cursors include immutable result identity and fingerprint, and are rejected for other results. Source record IDs are preserved in assignments, sentiment and outlier rows. Dataset artifacts retain the complete selected text/metadata. A result handle is inaccessible to another principal and unavailable artifacts produce explicit errors.
+`get_summary` returns compact evidence; `get_examples` returns 1–100 examples with text truncated to 1,000 characters; `get_result_page` returns up to 1,000 output rows. `get_evidence` renders one result as an LLM-ready pack (format `evidence/1.0`); degenerate output returns an error field instead of misleading text. Cursors include immutable result identity and fingerprint, and are rejected for other results. Source record IDs are preserved in assignments, sentiment and outlier rows. Dataset artifacts retain the complete selected text/metadata. A result handle is inaccessible to another principal and unavailable artifacts produce explicit errors.
+
+## Evidence packs
+
+`render_evidence` combines the results of one dataset into a citation-keyed text pack: drift bucket tables, novelty tops with record text, flow rows joined with topic terms, plus calibration stats and edge flags. Renderers assert non-degeneracy — novelty requires record text for top records, flow requires a positive share, drift needs two buckets with numeric scores — and raise `VTError` otherwise, so a model can never be fed a silently empty pack. `render_evidence` rejects multi-dataset mixes and truncates over-long packs with a `[truncated]` marker. Workers persist an `evd` artifact for jobs containing temporal ops; single results render on demand.
 
 ## Limits
 

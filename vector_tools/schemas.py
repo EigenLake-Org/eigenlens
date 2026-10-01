@@ -60,12 +60,15 @@ class Parameters(Contract):
     stop_words: Literal["english"] | None = None
     positive_threshold: float | None = Field(default=None, ge=0, le=1)
     negative_threshold: float | None = Field(default=None, ge=-1, le=0)
+    time_field: str | None = Field(default=None, min_length=1, max_length=128)
+    bucket: Literal["day", "week", "month"] | None = None
+    min_bucket_n: int | None = Field(default=None, ge=2, le=100000)
     def supplied(self):
         return self.model_dump(exclude_none=True, exclude={"schema_version"})
 
 class Operation(Contract):
     id: str = Field(pattern=r"^[a-zA-Z][a-zA-Z0-9_]{0,63}$")
-    type: Literal["cluster", "topics", "sentiment", "outliers"]
+    type: Literal["cluster", "topics", "sentiment", "outliers", "drift", "novelty", "flow"]
     algorithm: str | None = None
     parameters: Parameters = Field(default_factory=Parameters)
     clusters_from: str | None = None
