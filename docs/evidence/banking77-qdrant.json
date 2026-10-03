@@ -1,0 +1,23 @@
+{
+  "query": "Banking customer support problems with cards, payments, transfers, cash withdrawals and accounts",
+  "collection": "banking77_minilm",
+  "top_k": 2000,
+  "retrieved": 2000,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+  "status": "selected",
+  "best_parameters": {
+    "eps": 0.55,
+    "min_samples": 10,
+    "clusters": 25,
+    "noise_percentage": 69.85,
+    "silhouette": 0.42419988145501375,
+    "silhouette_records": 603
+  },
+  "noise_count": 1397,
+  "indexed_rows": 13069,
+  "dataset_revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+  "dataset_sha256": "52b4e652faab42a958732513dceb328b347ea805f5b3cb6111aa002701468304",
+  "test_result": "48 passed, 5 skipped",
+  "live_openai_agent_tested": false
+}

@@ -114,3 +114,44 @@ Available-environment suite: **41 passed, 4 skipped, 6 deselected** (`pytest -q 
 Algorithm tests cover two separated groups plus noise, label independence, metrics, invalid grids, no valid candidate, empty vocabulary, downstream topics and memory limits. A real stdio MCP test covers discovery, registration, asynchronous execution, summaries, examples and result paging.
 
 The real BANKING77 download, MiniLM inference, Plotly export and live OpenAI call were not executed in this restricted session: additional dependencies could not be downloaded from PyPI. No BANKING77 quality scores are claimed. HTTP tests also require permission to bind a local socket.
+
+## Recommended flow: index → query Qdrant → cluster matches → plot
+
+```bash
+pip install -e '.[banking,qdrant]'
+./scripts/try-banking-query.sh
+# Subsequent queries reuse all indexed vectors:
+python -m examples.banking77_qdrant query --query 'general banking support problems' --top-k 2000
+```
+
+The script starts the existing Qdrant Compose service, downloads the full BANKING77 train/test corpus and MiniLM model on first use, indexes normalized 384-dimensional embeddings into `banking77_minilm`, runs a general banking query, and clusters the top 2,000 returned vectors with DBSCAN. No OpenAI key is needed. Activate the virtual environment before running the script.
+
+Open `demo-output/banking77-query/banking77_dbscan_3d.html`. The directory also contains `query_report.md` with cluster counts and nearest matches, `query_results.json` with ranked scores and cluster summaries, and all CSV exports. A broad query still returns a relevance-ranked subset; these are not whole-collection clusters.
+
+For an already running Qdrant service:
+
+```bash
+python -m examples.banking77_qdrant demo
+```
+
+Use `--qdrant-url`, `--collection`, `--query`, `--top-k` (3–2000), and `--output` to customize. The query uses the exact embedding model revision recorded during preparation. IDs are deterministic and upserts are repeatable. A collection holding another dataset/model snapshot is refused; choose a fresh collection name instead of overwriting it.
+
+Agent integration can call the Python `query_and_plot` function from an application-owned tool, or retrieve with `retrieve` and register those returned records through the existing MCP `register_records` tool. The agent then submits `dbscan_search` on that retrieval dataset; the application exports the result. Credentials, Qdrant URLs, and output folders should stay in host configuration. Embedding matrices are passed between Qdrant and the application, not placed in model messages.
+
+### Agent chooses the query and gets clusters plus a plot
+
+After indexing with `examples.banking77_qdrant demo`:
+
+```bash
+pip install -e '.[agents]'
+export OPENAI_API_KEY='your-key'
+export OPENAI_MODEL='your-model-id'
+export BANKING_QUERY='Show general banking support clusters'
+python -m examples.banking77_query_agent
+```
+
+The agent has a typed `search_banking_clusters(query, top_k)` function tool. Host code embeds the query with MiniLM, searches Qdrant, clusters retrieved vectors and writes the plot. The tool returns computed group summaries and the plot path; the agent explains them. No raw embedding vectors or full 2,000-row tables enter the model context. This live-model example requires credentials and is separate from the key-free query CLI.
+
+## Verified Qdrant demo (2026-10-03)
+
+The full end-to-end Qdrant flow has now run successfully: 13,069 BANKING77 records embedded with MiniLM and indexed; the general banking query retrieved 2,000 matches; DBSCAN selected eps=0.55/min_samples=10 and found 25 clusters containing 603 records, with 1,397 noise points (69.85%). Non-noise silhouette was 0.4242. The high noise rate is part of the result, not hidden or forced into clusters. Plotly HTML and all exports were generated. The latest suite passed 48 tests, with five skipped. See [run evidence](evidence/banking77-qdrant.json). Earlier session download restrictions above describe the prior implementation run; they no longer apply to this completed Qdrant run. Live OpenAI model calls remain untested.

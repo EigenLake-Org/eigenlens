@@ -99,3 +99,12 @@ The demo Compose configuration binds published ports to loopback. Change the dem
 ## BANKING77 DBSCAN demo
 
 PCA/DBSCAN parameter search, intent evaluation, interactive 3D plots, and SDK/MCP agent access are available on this branch. See [BANKING77 setup and agent guide](docs/banking77.md).
+
+### Query BANKING77 in Qdrant and plot clusters
+
+```bash
+pip install -e '.[banking,qdrant]'
+./scripts/try-banking-query.sh
+```
+
+Indexes the full corpus with MiniLM, queries Qdrant, and clusters the top 2,000 matches. Open `demo-output/banking77-query/banking77_dbscan_3d.html`. Use `python -m examples.banking77_qdrant query --query "your banking question"` for another query. An optional agent tool is in `examples/banking77_query_agent.py`.

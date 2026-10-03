@@ -100,7 +100,7 @@ def export(result, records, output, manifest):
     for column in ("query", "true_intent", "terms", "cluster_name"):
         display[column] = display[column].map(lambda v: html.escape(str(v)))
     fig = px.scatter_3d(display, x="PC1", y="PC2", z="PC3", color="cluster_name", hover_name="query",
-                        hover_data=["true_intent", "terms"], title=f"BANKING77 — DBSCAN ({summary['status']})")
+                        hover_data=["true_intent", "terms"], title=html.escape(f"BANKING77 — DBSCAN ({summary['status']})" + (f" · {summary['query']}" if summary.get("query") else "")))
     fig.update_traces(marker=dict(size=2, opacity=.65))
     fig.write_html(output / "banking77_dbscan_3d.html", include_plotlyjs=True)
     print(f"Reports saved to {output.resolve()}; status={summary['status']}")
