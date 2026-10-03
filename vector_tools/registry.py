@@ -8,6 +8,12 @@ REGISTRY = {
     "outliers": {"algorithm": "isolation_forest", "fields": {"vector"}, "params": {"n_estimators", "random_state", "max_samples", "contamination", "normalize"}},
 }
 
+DBSCAN_PARAMS = {"pca_components", "eps_values", "min_samples_values", "max_noise_ratio", "silhouette_sample_size", "random_state", "label_field"}
+REGISTRY["cluster"]["algorithms"] = {
+    "minibatch_kmeans": REGISTRY["cluster"]["params"],
+    "dbscan_search": DBSCAN_PARAMS,
+}
+
 def plan(operations, backend="auto", limits=None):
     limits = limits or Limits()
     if backend not in {"auto", "local"}:
@@ -20,9 +26,11 @@ def plan(operations, backend="auto", limits=None):
         raise VTError("Operation IDs must be unique")
     for o in ops:
         spec = REGISTRY[o.type]
-        if o.algorithm and o.algorithm != spec["algorithm"]:
-            raise VTError(f"{o.type} supports algorithm {spec['algorithm']}")
-        invalid = o.parameters.supplied().keys() - spec["params"]
+        algorithms = spec.get("algorithms", {spec["algorithm"]: spec["params"]})
+        algorithm = o.algorithm or spec["algorithm"]
+        if algorithm not in algorithms:
+            raise VTError(f"{o.type} supports algorithms {sorted(algorithms)}")
+        invalid = o.parameters.supplied().keys() - algorithms[algorithm]
         if invalid:
             raise VTError(f"Unsupported parameters for {o.type}: {sorted(invalid)}")
         if o.type == "topics" and not o.clusters_from:

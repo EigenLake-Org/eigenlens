@@ -41,7 +41,7 @@ class Service:
                             constraints="describe_source verifies serverless deployment before enabling listing and sampling")
             source_capabilities[source_id] = caps
         return {"schema_version": "1.0", "source_capabilities": source_capabilities, "sources": self.config.callers.get(owner, {}).get("sources", []),
-                "operations": {k: {"algorithm": v["algorithm"], "parameters": sorted(v["params"]), "required_fields": sorted(v["fields"])} for k,v in REGISTRY.items()},
+                "operations": {k: {"algorithm": v["algorithm"], "parameters": sorted(v["params"]), "required_fields": sorted(v["fields"]), "algorithms": {a: sorted(p) for a,p in v.get("algorithms", {v["algorithm"]: v["params"]}).items()}} for k,v in REGISTRY.items()},
                 "sentiment": sentiment, "backends": [LocalBackend().capabilities(), SPARK_CAPABILITIES], "limits": self.config.limits.model_dump()}
     def describe_source(self, owner, source_id):
         source = self.config.source(source_id, owner)

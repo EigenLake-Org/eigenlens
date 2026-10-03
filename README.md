@@ -95,3 +95,7 @@ The demo Compose configuration binds published ports to loopback. Change the dem
 ## Repository map
 
 `vector_tools/schemas.py` defines portable contracts; `sources/` contains adapters; `datasets.py` handles lazy plans and materialization; `registry.py` validates operation plans; `operators.py` implements ML; `backends.py` defines execution and extension contracts; `artifacts.py` and `jobs.py` persist artifacts and supervise workers; `service.py` owns application services; `server.py` exposes MCP; `examples/` and `tests/` exercise the workflows.
+
+## BANKING77 DBSCAN demo
+
+PCA/DBSCAN parameter search, intent evaluation, interactive 3D plots, and SDK/MCP agent access are available on this branch. See [BANKING77 setup and agent guide](docs/banking77.md).

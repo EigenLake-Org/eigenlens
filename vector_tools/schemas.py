@@ -60,6 +60,24 @@ class Parameters(Contract):
     stop_words: Literal["english"] | None = None
     positive_threshold: float | None = Field(default=None, ge=0, le=1)
     negative_threshold: float | None = Field(default=None, ge=-1, le=0)
+    pca_components: int | None = Field(default=None, ge=1, le=512)
+    eps_values: list[float] | None = Field(default=None, min_length=1, max_length=32)
+    min_samples_values: list[int] | None = Field(default=None, min_length=1, max_length=16)
+    max_noise_ratio: float | None = Field(default=None, gt=0, le=1)
+    silhouette_sample_size: int | None = Field(default=None, ge=3, le=4000)
+    label_field: str | None = Field(default=None, min_length=1, max_length=128)
+    @field_validator("eps_values")
+    @classmethod
+    def positive_eps(cls, values):
+        if values is not None and any(not math.isfinite(v) or v <= 0 for v in values):
+            raise ValueError("eps_values must be finite and positive")
+        return values
+    @field_validator("min_samples_values")
+    @classmethod
+    def positive_samples(cls, values):
+        if values is not None and any(v < 1 for v in values):
+            raise ValueError("min_samples_values must be positive")
+        return values
     def supplied(self):
         return self.model_dump(exclude_none=True, exclude={"schema_version"})
 

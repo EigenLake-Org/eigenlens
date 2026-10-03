@@ -37,7 +37,14 @@ def matrix(data, normalize=False):
         raise VTError("Estimated working memory exceeds max_working_bytes")
     return unit_normalize(x) if normalize else x
 
-def cluster(data, estimator=None, op_id="clusters", run_id=None, **parameters):
+def cluster(data, estimator=None, op_id="clusters", run_id=None, algorithm="minibatch_kmeans", **parameters):
+    if algorithm == "dbscan_search":
+        if estimator is not None:
+            raise VTError("dbscan_search does not accept an estimator")
+        from .density import dbscan_search
+        return dbscan_search(data, op_id=op_id, run_id=run_id, **parameters)
+    if algorithm != "minibatch_kmeans":
+        raise VTError("Unknown clustering algorithm")
     params = dict(parameters)
     normal = params.pop("normalize", False)
     x = matrix(data, normal)

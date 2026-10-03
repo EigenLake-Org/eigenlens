@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=2,<3", "scikit-learn>=1.6,<2", "pydantic>=2.10,<3", "pyarrow>=18", "threadpoolctl>=3"]
 
 [project.optional-dependencies]
+banking = ["datasets>=3,<5", "sentence-transformers>=3,<6", "pandas>=2,<3", "plotly>=5,<7"]
 server = ["mcp>=1.30,<2", "uvicorn>=0.30"]
 agents = ["openai-agents>=0.22.2,<0.23"]
 sentiment = ["vaderSentiment==3.3.2"]

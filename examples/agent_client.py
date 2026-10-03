@@ -39,19 +39,23 @@ def connection(transport):
     token = os.getenv("VECTOR_ML_MCP_TOKEN")
     return Http(params={"url":os.environ["VECTOR_ML_MCP_URL"], "headers":{"Authorization":f"Bearer {token}"} if token else {}}, **common)
 
-async def workflow(server, model, source_id="demo", max_turns=20, *, sample_n=62, n_clusters=4, subject="records"):
+async def workflow(server, model, source_id="demo", max_turns=20, *, sample_n=62, n_clusters=4, subject="records", dataset_id=None, operations=None, poll_timeout=300):
     request_key = uuid.uuid4().hex
     selection_instruction = (f"Create a seeded sample of up to {sample_n} records. " if sample_n is not None else "Create a complete dataset using selection={} with no sampling. ")
+    if dataset_id:
+        selection_instruction = f"Use the already registered dataset {dataset_id}; do not create or register another dataset. "
+    plan_instruction = ("Submit exactly this analysis plan: " + json.dumps(operations) + ". " if operations is not None
+                        else f"Then submit one plan: cluster with {n_clusters} groups, ctfidf topics, VADER sentiment aggregated by groups, and outliers. ")
     agent = Agent(name="Record Analyst", model=model, mcp_servers=[server], instructions=(
-        f"Analyze {subject}. Discover capabilities and inspect the configured source. "
+        f"Analyze {subject}. Discover capabilities. Inspect the configured source only when no dataset handle was provided. "
         + selection_instruction +
-        f"Then submit one plan: cluster with {n_clusters} groups, ctfidf topics, VADER sentiment aggregated by groups, and outliers. "
+        plan_instruction +
         f"Use idempotency_key {request_key} on submission and retries. "
         "Check job status once. If pending, return the job ID and pending status. The host will poll and resume you. "
         "On completion inspect every summary and representative examples. Answer with computed counts, source IDs, "
         "scope and limitations. Counts describe vector records. Themes are evidence for investigation, not confirmed causes. "
         "On resumption reuse the completed job and dataset; never submit another job just to retrieve results."))
-    history = [{"role":"user", "content":f"Analyze configured source {source_id}."}]
+    history = [{"role":"user", "content":f"Analyze registered dataset {dataset_id}." if dataset_id else f"Analyze configured source {source_id}."}]
     config = RunConfig(tracing_disabled=True)
     first = None
     turn_limit_hit = False
@@ -69,7 +73,7 @@ async def workflow(server, model, source_id="demo", max_turns=20, *, sample_n=62
         return content(await server.call_tool(name, args))
     completed = []
     for job_id in server.jobs:
-        completed.append(await poll(call, job_id))
+        completed.append(await poll(call, job_id, timeout=poll_timeout))
     if completed:
         history.append({"role":"user", "content":"Completed jobs (reuse these handles): " + json.dumps(completed)})
         try:

@@ -35,6 +35,8 @@ class LocalBackend:
         results = {}
         for op in ordered:
             kwargs = {"op_id": op.id, "run_id": run_id, **op.parameters.supplied()}
+            if op.type == "cluster":
+                kwargs["algorithm"] = op.algorithm or "minibatch_kmeans"
             if op.clusters_from:
                 kwargs["clusters"] = results[op.clusters_from]
             if op.type == "sentiment":
