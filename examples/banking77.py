@@ -92,7 +92,7 @@ def export(result, records, output, manifest):
         table.append(dict(id=r.id, query=r.text, true_intent=r.metadata.get("label_text"),
                           cluster_id=cid, terms=terms[cid], PC1=assignment["pca_3d"][0],
                           PC2=assignment["pca_3d"][1], PC3=assignment["pca_3d"][2],
-                          cluster_name=("Unassigned" if summary["status"] != "selected" else "Noise") if cid == -1 else f"Cluster {cid} | {terms[cid]}"))
+                          cluster_name=("Unassigned" if summary["status"] != "selected" else "Noise") if cid == -1 else f"Cluster {cid}"))
     frame = pd.DataFrame(table)
     frame.to_csv(output / "banking77_clustered.csv", index=False)
     pd.crosstab(frame.cluster_id, frame.true_intent).to_csv(output / "banking77_cluster_vs_intent.csv")
@@ -100,9 +100,37 @@ def export(result, records, output, manifest):
     for column in ("query", "true_intent", "terms", "cluster_name"):
         display[column] = display[column].map(lambda v: html.escape(str(v)))
     fig = px.scatter_3d(display, x="PC1", y="PC2", z="PC3", color="cluster_name", hover_name="query",
-                        hover_data=["true_intent", "terms"], title=html.escape(f"BANKING77 — DBSCAN ({summary['status']})" + (f" · {summary['query']}" if summary.get("query") else "")))
-    fig.update_traces(marker=dict(size=2, opacity=.65))
-    fig.write_html(output / "banking77_dbscan_3d.html", include_plotlyjs=True)
+                        hover_data=["true_intent", "terms"], title="BANKING77 · Query clusters",
+                        color_discrete_map={"Noise": "#b8c0cc", "Unassigned": "#b8c0cc"})
+    fig.update_traces(marker=dict(size=3, opacity=.8))
+    for trace in fig.data:
+        if trace.name in {"Noise", "Unassigned"}:
+            trace.update(marker=dict(size=2, opacity=.22))
+    fig.update_layout(
+        autosize=True, showlegend=False, margin=dict(l=0, r=0, t=48, b=0),
+        title=dict(x=.02, font=dict(size=18)),
+        legend=dict(title_text="", font=dict(size=11), itemsizing="constant",
+                    x=1, xanchor="right", y=.98, yanchor="top",
+                    bgcolor="rgba(255,255,255,0.78)"),
+        scene=dict(domain=dict(x=[0, 1], y=[0, 1]),
+                   xaxis_title="PCA 1", yaxis_title="PCA 2", zaxis_title="PCA 3"),
+        paper_bgcolor="#f8fafc")
+    page = fig.to_html(include_plotlyjs=True, full_html=True,
+                       default_width="100%", default_height="100vh",
+                       config={"responsive": True, "displaylogo": False})
+    page = page.replace("<head>", "<head><meta name='viewport' content='width=device-width, initial-scale=1'>"
+                        "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}</style>", 1)
+    page = page.replace("</body>", """<button id="cluster-toggle" style="position:fixed;bottom:16px;right:16px;z-index:20;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#334155;cursor:pointer" aria-pressed="false">Show clusters</button>
+<script>
+const toggle = document.getElementById('cluster-toggle');
+toggle.addEventListener('click', () => {
+  const shown = toggle.getAttribute('aria-pressed') !== 'true';
+  Plotly.relayout(document.querySelector('.plotly-graph-div'), {showlegend: shown});
+  toggle.setAttribute('aria-pressed', String(shown));
+  toggle.textContent = shown ? 'Hide clusters' : 'Show clusters';
+});
+</script></body>""", 1)
+    (output / "banking77_dbscan_3d.html").write_text(page)
     print(f"Reports saved to {output.resolve()}; status={summary['status']}")
 
 
