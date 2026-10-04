@@ -3,7 +3,7 @@ from .schemas import Operation, Limits, VTError
 
 REGISTRY = {
     "cluster": {"algorithm": "minibatch_kmeans", "fields": {"vector"}, "params": {"n_clusters", "random_state", "batch_size", "n_init", "max_iter", "normalize"}},
-    "topics": {"algorithm": "ctfidf", "fields": {"text"}, "params": {"top_n", "stop_words"}},
+    "topics": {"algorithm": "ctfidf", "fields": {"text"}, "params": {"top_n", "stop_words", "ngram_max"}},
     "sentiment": {"algorithm": "vader", "fields": {"text"}, "params": {"batch_size", "positive_threshold", "negative_threshold"}},
     "outliers": {"algorithm": "isolation_forest", "fields": {"vector"}, "params": {"n_estimators", "random_state", "max_samples", "contamination", "normalize"}},
 }

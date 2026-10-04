@@ -57,6 +57,7 @@ class Parameters(Contract):
     contamination: float | Literal["auto"] | None = None
     normalize: bool | None = None
     top_n: int | None = Field(default=None, ge=1, le=100)
+    ngram_max: int | None = Field(default=None, ge=1, le=3)
     stop_words: Literal["english"] | None = None
     positive_threshold: float | None = Field(default=None, ge=0, le=1)
     negative_threshold: float | None = Field(default=None, ge=-1, le=0)

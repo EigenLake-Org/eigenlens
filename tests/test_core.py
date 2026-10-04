@@ -62,6 +62,23 @@ def test_empty_text():
     assert t.skipped["missing_text"] == 1
     assert vt.sentiment(data).processed == 1
 
+def test_topic_phrases_do_not_cross_record_boundaries():
+    data = vt.from_records([
+        {"id":"a", "vector":[1,0], "text":"cash withdrawal"},
+        {"id":"b", "vector":[1,.01], "text":"card payment"},
+    ]).materialize()
+    results = vt.analyze(data, [
+        {"id":"groups", "type":"cluster", "parameters":{"n_clusters":1}},
+        {"id":"themes", "type":"topics", "clusters_from":"groups", "parameters":{"ngram_max":2}},
+    ])
+    terms={t['term'] for row in results['themes'].rows for t in row['terms']}
+    assert {'cash withdrawal','card payment'} <= terms
+    assert 'withdrawal card' not in terms
+    assert results['themes'].effective_parameters['ngram_range']==[1,2]
+    assert results['themes'].processed==2
+    with pytest.raises(ValueError):
+        plan([{"id":"themes", "type":"topics", "clusters_from":"groups", "parameters":{"ngram_max":4}}])
+
 def test_registry_rejection():
     for ops, backend in [([{"id":"g", "type":"cluster"}], "spark"),
                           ([{"id":"t", "type":"topics", "clusters_from":"absent"}], "local"),

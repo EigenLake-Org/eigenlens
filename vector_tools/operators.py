@@ -7,6 +7,7 @@ import hashlib
 import math
 import uuid
 import numpy as np
+from scipy.sparse import csr_matrix
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.ensemble import IsolationForest
 from sklearn.feature_extraction.text import CountVectorizer
@@ -79,18 +80,25 @@ def validate_clusters(data, clusters):
         raise VTError("Cluster assignment IDs do not match this dataset")
     return mapping
 
-def topics(data, clusters, representation="ctfidf", op_id="topics", run_id=None, top_n=10, stop_words="english"):
+def topics(data, clusters, representation="ctfidf", op_id="topics", run_id=None, top_n=10, stop_words="english", ngram_max=1):
     if representation != "ctfidf":
         raise VTError("Supported topic representation: ctfidf")
     if not 1 <= top_n <= 100:
         raise VTError("top_n must be 1..100")
+    if type(ngram_max) is not int or not 1 <= ngram_max <= 3:
+        raise VTError("ngram_max must be 1..3")
     mapping = validate_clusters(data, clusters)
     ids = sorted(set(mapping.values()))
-    docs = [" ".join(r.text or "" for r in data.records if mapping[r.id] == cid) for cid in ids]
+    positions = {cid: i for i, cid in enumerate(ids)}
     empty = sum(not (r.text or "").strip() for r in data.records)
     try:
-        v = CountVectorizer(stop_words=stop_words, max_features=20000)
-        counts = v.fit_transform(docs).astype(float)
+        v = CountVectorizer(stop_words=stop_words, max_features=20000, ngram_range=(1, ngram_max))
+        # Extract phrases per record so a phrase never crosses a document boundary.
+        document_counts = v.fit_transform([r.text or "" for r in data.records]).astype(float)
+        membership = csr_matrix((np.ones(len(data.records)),
+                                 ([positions[mapping[r.id]] for r in data.records], np.arange(len(data.records)))),
+                                shape=(len(ids), len(data.records)))
+        counts = membership @ document_counts
         tf = unit_normalize(counts, norm="l1", axis=1)
         average = float(np.asarray(counts.sum(axis=1)).mean())
         idf = np.log1p(average / np.asarray(counts.sum(axis=0)).ravel())
@@ -108,6 +116,7 @@ def topics(data, clusters, representation="ctfidf", op_id="topics", run_id=None,
         rows = [{"cluster_id": cid, "terms": []} for cid in ids]
         vocabulary_status = "empty_vocabulary"
     result = base(data, "topics", op_id, {"representation": "ctfidf", "top_n": top_n, "stop_words": stop_words, "max_features": 20000,
+                                         "ngram_range": [1, ngram_max],
                                          "weighting": "L1 class term frequency * log(1 + mean class token count / total term frequency)"},
                   {"topics": rows, "vocabulary_status": vocabulary_status, "clustering_result_id": clusters.result_id}, rows,
                   clusters.example_rows, run_id, {"missing_text": empty})

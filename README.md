@@ -47,6 +47,15 @@ print(vt.sentiment(data, clusters=clusters).summary())
 print(vt.outliers(data).top(n=5))
 ```
 
+For topic phrases as well as single words, use `vt.topics(data, clusters=clusters, ngram_max=2)`.
+The same setting works through MCP with a dependent operation:
+
+```json
+{"id":"themes","type":"topics","clusters_from":"groups","parameters":{"ngram_max":2,"top_n":15}}
+```
+
+`ngram_max` accepts 1–3 and defaults to 1. Phrase counts are extracted within each record before being aggregated by cluster, so phrases cannot cross record boundaries. Topic results contain weighted c-TF-IDF terms; the dependent clustering result provides representative examples. Fetch all topic rows with `get_result_page` when the summary's 20-topic preview is insufficient.
+
 The demonstration has 62 explicitly synthetic tickets: three known themes plus two unusual embedding points. Its embeddings are seeded Gaussian vectors around hand-selected centers, not embeddings from a language model. Counts refer to vector records; parent ticket IDs are retained but not deduplicated.
 
 ## Run MCP and agent examples
