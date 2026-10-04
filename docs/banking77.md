@@ -155,3 +155,7 @@ The agent has a typed `search_banking_clusters(query, top_k)` function tool. Hos
 ## Verified Qdrant demo (2026-10-03)
 
 The full end-to-end Qdrant flow has now run successfully: 13,069 BANKING77 records embedded with MiniLM and indexed; the general banking query retrieved 2,000 matches; DBSCAN selected eps=0.55/min_samples=10 and found 25 clusters containing 603 records, with 1,397 noise points (69.85%). Non-noise silhouette was 0.4242. The high noise rate is part of the result, not hidden or forced into clusters. Plotly HTML and all exports were generated. The latest suite passed 48 tests, with five skipped. See [run evidence](evidence/banking77-qdrant.json). Earlier session download restrictions above describe the prior implementation run; they no longer apply to this completed Qdrant run. Live OpenAI model calls remain untested.
+
+### Job server update
+
+The `banking77_query_agent` example now calls the HTTP job server for execution. Start the server and set `VECTOR_QUERY_TOKEN` and optionally `VECTOR_QUERY_URL` before running it. See [job server guide](query-job-server.md). The direct query CLI still runs computation in its own process.

@@ -24,5 +24,16 @@ USER vector
 HEALTHCHECK NONE
 CMD ["python", "-m", "examples.food_reviews", "analyze", "--cache-dir", "/cache", "--output", "/output"]
 
+# Query-job server: owns embedding, Qdrant retrieval, clustering and plot generation.
+FROM server AS query_jobs
+USER root
+RUN --mount=type=cache,target=/root/.cache/pip pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install '.[banking]' && mkdir -p /models && chown vector:vector /models
+COPY examples /app/examples
+ENV HF_HOME=/models TOKENIZERS_PARALLELISM=false
+USER vector
+EXPOSE 8010
+HEALTHCHECK --interval=10s --timeout=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=2)"
+CMD ["python", "-m", "examples.query_job_server", "--host", "0.0.0.0", "--config", "/app/config/query-jobs-docker.json"]
+
 # Plain docker build defaults to the server, while Compose explicitly selects demo_client.
 FROM server AS runtime

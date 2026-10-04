@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
   qdrant:
     image: qdrant/qdrant:v1.15.5
-    profiles: ["local", "qdrant", "food-demo"]
+    profiles: ["local", "qdrant", "food-demo", "query-jobs"]
     ports: ["127.0.0.1:6333:6333"]
     volumes: ["qdrant:/qdrant/storage"]
     healthcheck:
@@ -54,6 +54,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+  query-jobs:
+    build:
+      context: .
+      target: query_jobs
+    profiles: ["query-jobs"]
+    ports: ["127.0.0.1:8010:8010"]
+    environment:
+      VECTOR_QUERY_TOKEN: ${VECTOR_QUERY_TOKEN:-}
+    volumes:
+      - query-job-data:/data
+      - query-models:/models
+      - ./.vector-ml/banking77:/prepared:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    init: true
+    mem_limit: 4g
+    cpus: 2
+    restart: unless-stopped
   food-loader:
     build:
       context: .
@@ -86,3 +105,5 @@ volumes:
   weaviate:
   postgres:
   food-cache:
+  query-job-data:
+  query-models:

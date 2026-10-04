@@ -108,3 +108,7 @@ pip install -e '.[banking,qdrant]'
 ```
 
 Indexes the full corpus with MiniLM, queries Qdrant, and clusters the top 2,000 matches. Open `demo-output/banking77-query/banking77_dbscan_3d.html`. Use `python -m examples.banking77_qdrant query --query "your banking question"` for another query. An optional agent tool is in `examples/banking77_query_agent.py`.
+
+## Run clustering on a job server
+
+Start `python -m examples.query_job_server` with `VECTOR_QUERY_TOKEN` set. Clients submit to `POST /jobs`, poll the job ID, and download the plot and results. The agent client also uses this HTTP server. See [job server setup, API and deployment](docs/query-job-server.md).

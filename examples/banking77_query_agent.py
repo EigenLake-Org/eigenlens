@@ -1,23 +1,21 @@
 """OpenAI agent tool: semantic Qdrant query → DBSCAN clusters → saved plot."""
 import asyncio
-from contextlib import closing
 import json
 import os
 from pathlib import Path
 import uuid
 from agents import Agent, Runner, function_tool, RunConfig
-from qdrant_client import QdrantClient
-from vector_tools.config import Config
-from examples.banking77 import read_records
-from examples.banking77_qdrant import DEFAULT_QUERY, query_and_plot
+from examples.query_job_client import run
+
+DEFAULT_QUERY = "General banking support problems"
 
 
 async def main():
     if not os.getenv('OPENAI_API_KEY') or not os.getenv('OPENAI_MODEL'):
-        raise SystemExit('Set OPENAI_API_KEY and OPENAI_MODEL. First run examples.banking77_qdrant demo to index data.')
-    config = Config('config/banking77.json')
-    _, manifest = read_records(config)
-    # Connection, model revision and file destinations stay in trusted host code.
+        raise SystemExit('Set OPENAI_API_KEY and OPENAI_MODEL. Start examples.query_job_server and configure its indexed Qdrant source first.')
+    if not os.getenv('VECTOR_QUERY_TOKEN'):
+        raise SystemExit('Set VECTOR_QUERY_TOKEN for the HTTP job server')
+    # Remote server owns the model and Qdrant connection; host owns download destinations.
     @function_tool
     async def search_banking_clusters(query: str, top_k: int = 2000) -> str:
         """Search indexed BANKING77 banking queries; return DBSCAN groups and a local interactive plot path.
@@ -29,11 +27,8 @@ async def main():
         if not 3 <= top_k <= 2000:
             return 'top_k must be between 3 and 2000.'
         output = Path('demo-output/banking77-agent') / uuid.uuid4().hex
-        def compute():
-            with closing(QdrantClient(url=os.getenv('QDRANT_URL', 'http://localhost:6333'),
-                                     api_key=os.getenv('QDRANT_API_KEY'), timeout=120)) as client:
-                return query_and_plot(client, 'banking77_minilm', manifest, query, top_k, output, config.limits)
-        report = await asyncio.to_thread(compute)
+        report = await asyncio.to_thread(run, query, top_k,
+                                         os.getenv('VECTOR_QUERY_URL', 'http://127.0.0.1:8010'), str(output))
         return json.dumps({k:v for k,v in report.items() if k != 'hits'})
 
     agent = Agent(name='Banking Query Analyst', model=os.environ['OPENAI_MODEL'], tools=[search_banking_clusters],

@@ -62,8 +62,9 @@ def worker(root, config_path, job_id, owner):
             close_source(source)
 
 class Supervisor:
-    def __init__(self, config):
+    def __init__(self, config, worker_target=worker):
         self.config = config
+        self.worker_target = worker_target
         self.store = Store(config.root)
         self.lockfile = (config.root / "supervisor.lock").open("a+")
         try:
@@ -100,7 +101,7 @@ class Supervisor:
                         break
                     if row["id"] in self.running:
                         continue
-                    p = mp.get_context("spawn").Process(target=worker, args=(str(self.config.root), self.config.path, row["id"], row["owner"]), daemon=True)
+                    p = mp.get_context("spawn").Process(target=self.worker_target, args=(str(self.config.root), self.config.path, row["id"], row["owner"]), daemon=True)
                     p.start()
                     self.running[row["id"]] = (p, time.monotonic(), row["owner"])
     def cancel(self, owner, job_id):
