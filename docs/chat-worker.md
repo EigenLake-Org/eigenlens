@@ -1,41 +1,43 @@
-# Separate chat analysis worker
+# Chat analysis worker
 
-This worker uses the existing core HTTP MCP server and supervisor. Each analysis runs in a spawned process inside the container, with a persistent `/data` volume. It is separate from the generic service on port 8000 and the older BANKING77 query demo on port 8010.
+Vector Chat connects to Qdrant, retrieves the full intended selection, and uploads its records to this worker. The worker runs PCA/DBSCAN and c-TF-IDF in isolated job processes and returns assignments, coordinates and labels. The chat renders results and plots.
 
-## Recommended setup
+## Recommended startup
 
-Clone compatible `vector-tools` and `vector-chat` checkouts next to each other. Install Vector Chat in a virtual environment and run its `scripts/run-worker-chat.sh`. The script generates a private token once, starts this service, and passes the authenticated MCP URL to the chat. The chat performs Qdrant retrieval and uploads the complete selection; this worker performs PCA, DBSCAN search and c-TF-IDF. Qdrant credentials remain on the chat host.
+Keep compatible `vector-tools` and `vector-chat` checkouts next to each other. From Vector Chat:
 
-## Manual setup
+```bash
+./scripts/run-docker-chat.sh             # default one worker
+./scripts/run-docker-chat.sh --workers 3 # three concurrent jobs
+```
+
+The script creates a private token once and starts the chat UI and core worker. Optional Qdrant is a separate container. Each job is a process inside the worker container, not a new container. Qdrant credentials stay in the chat service.
+
+## Manual startup
 
 ```bash
 export VECTOR_CHAT_WORKER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export VECTOR_CHAT_WORKERS=1
 docker compose --profile chat-worker up -d --build --wait chat-worker
-# In the chat process environment:
+# Set in the chat process environment:
 export VECTOR_CORE_MCP_URL=http://127.0.0.1:8020/mcp
 export VECTOR_CORE_MCP_TOKEN="$VECTOR_CHAT_WORKER_TOKEN"
 ```
 
-The token must match in both environments. Published ports bind to loopback. `/health` is unauthenticated; MCP and upload routes require bearer authentication. Use a TLS reverse proxy for any remote network deployment.
+The token must match in both processes. Published ports bind to loopback. MCP and upload routes require bearer authentication; `/health` is public. Use a TLS reverse proxy for remote deployment. Large selections use [streamed JSONL uploads](contracts.md#http-jsonl-upload); no shared filesystem is required.
 
-## Limits and lifecycle
+## Workers and limits
 
-`config/chat-worker.json` allows 20,000 rows, 512 MiB of serialized input, an 8 GiB working-memory estimate, one concurrent analysis by default and a 30-minute timeout. Compose also enforces an 8 GiB container memory limit and two CPUs. The memory estimate is not an exact RSS guarantee. Increasing the row limit requires reviewing both algorithm estimates and container memory. Oversized selections fail; the chat never samples them.
+`VECTOR_CHAT_WORKERS=N` controls core Compose concurrency, 1–16, default 1. Compose passes `VECTOR_ML_WORKERS` and an 8 GiB shared working-memory estimate. Each job receives `8 GiB / N` as its estimate, advertised in capabilities. The container retains two CPUs and an 8 GiB memory limit. More workers allow concurrent independent jobs; they do not parallelize a single PCA/DBSCAN job. `/health` reports the slot count.
 
-The `chat-worker-data` named volume contains jobs, registered datasets, intermediate data and results. Stop preserves it:
+The worker config allows 20,000 rows, 512 MiB serialized input and 30 minutes per job. Oversized selections fail without silent sampling. Change slot counts after active jobs finish: restart interrupts active work. Per-job cancellation stops only that job.
+
+## Persistence
+
+The Compose project remains `vector-ml`. Its `chat-worker-data` named volume contains registered datasets, job state, intermediate data and results. The optional `qdrant` volume contains database records. Stop preserves both:
 
 ```bash
 docker compose --profile chat-worker stop chat-worker
 ```
 
-Completed jobs survive restart. Jobs interrupted by service restart are marked failed. `cancel_job` terminates a pending/running worker and retains completed results if completion wins the race. Do not run two supervisors against the same data volume. Retention and automatic artifact cleanup are not implemented.
-
-For upload details see [the HTTP JSONL contract](contracts.md#http-jsonl-upload). Stream upload, registration and cleanup let a remote client use the worker without a shared filesystem. Analysis result summaries include the execution hostname and process ID so callers can verify container execution.
-
-## Choose concurrent workers
-
-From Vector Chat, run `./scripts/run-docker-chat.sh --workers N` (1–16, default 1). This applies `VECTOR_CHAT_WORKERS` to both the UI executor and this worker. For manual core Compose startup, set `VECTOR_CHAT_WORKERS=N` before starting `chat-worker`; also configure the chat with the same count.
-
-Compose passes `VECTOR_ML_WORKERS` into the core process and `VECTOR_ML_TOTAL_WORKING_BYTES=8589934592` as its shared working-memory estimate. Configuration divides the shared estimate by the selected slots and advertises the per-job limit through capabilities. Without these environment overrides, existing configuration-file limits remain unchanged. `/health` reports `workers` for checking the active slot count.
-
-Workers are spawned processes inside this single container. The supervisor runs at most N jobs together and queues additional jobs. Each analysis retains all records and runs as one job; the count does not parallelize individual PCA or DBSCAN operations. Per-job cancellation stops only the selected job. Container CPU and memory limits stay fixed. Restarting to change slot count interrupts active jobs, so allow them to finish first.
+Completed jobs survive restart. Interrupted jobs are marked failed. Use one supervisor per data volume. Automatic artifact retention is not implemented. The simplified Compose file defines only the worker and optional Qdrant; historical containers and volumes are not removed by this source cleanup.

@@ -4,8 +4,6 @@ from .schemas import Operation, Limits, VTError
 REGISTRY = {
     "cluster": {"algorithm": "minibatch_kmeans", "fields": {"vector"}, "params": {"n_clusters", "random_state", "batch_size", "n_init", "max_iter", "normalize"}},
     "topics": {"algorithm": "ctfidf", "fields": {"text"}, "params": {"top_n", "stop_words", "ngram_max"}},
-    "sentiment": {"algorithm": "vader", "fields": {"text"}, "params": {"batch_size", "positive_threshold", "negative_threshold"}},
-    "outliers": {"algorithm": "isolation_forest", "fields": {"vector"}, "params": {"n_estimators", "random_state", "max_samples", "contamination", "normalize"}},
 }
 
 DBSCAN_PARAMS = {"pca_components", "eps_values", "min_samples_values", "max_noise_ratio", "silhouette_sample_size", "random_state", "label_field"}
@@ -17,7 +15,7 @@ REGISTRY["cluster"]["algorithms"] = {
 def plan(operations, backend="auto", limits=None):
     limits = limits or Limits()
     if backend not in {"auto", "local"}:
-        raise VTError("Spark execution is unimplemented. Supported backend: local; no algorithm substitution is performed.")
+        raise VTError("Supported execution backend: local.")
     ops = [o if isinstance(o, Operation) else Operation.model_validate(o) for o in operations]
     if not 1 <= len(ops) <= 16:
         raise VTError("A plan must contain 1..16 operations")
@@ -36,14 +34,12 @@ def plan(operations, backend="auto", limits=None):
         if o.type == "topics" and not o.clusters_from:
             raise VTError("Topics require clusters_from referencing a cluster operation")
         if o.clusters_from:
-            if o.type not in {"topics", "sentiment"}:
-                raise VTError("Only topics and sentiment accept clusters_from")
+            if o.type != "topics":
+                raise VTError("Only topics accept clusters_from")
             if o.clusters_from not in by_id or by_id[o.clusters_from].type != "cluster":
                 raise VTError("clusters_from must reference a cluster operation in this plan")
         if o.representation and o.type != "topics":
             raise VTError("representation applies only to topics")
-        if o.model and (o.type != "sentiment" or o.model not in {"vader", "configured-default"}):
-            raise VTError("Available sentiment model: vader (configured-default)")
         if (o.parameters.n_clusters or 0) > limits.max_clusters:
             raise VTError("n_clusters exceeds configured max_clusters")
     ordered, pending = [], list(ops)

@@ -1,127 +1,84 @@
 # Vector Tools
 
-A working local ML execution layer for vector records, imported as `vector_tools` (`vt`). Analyze selected records from **Weaviate, PostgreSQL/pgvector, Qdrant, Pinecone, or memory** using the same Python SDK and MCP tool contracts.
+Clustering and topic labels for existing vector records, through a Python SDK or an MCP job server. Vector Chat retrieves records from Qdrant and sends them here for analysis.
 
-The implementation includes MiniBatchKMeans, c-TF-IDF topic representation, English VADER sentiment, IsolationForest, background worker processes, durable results, Docker deployment, and OpenAI Agents SDK examples.
+## What it does
 
-**Verification:** See [the verification report](docs/verification.md) for measured checks and remaining external integrations. Live OpenAI model calls and live Pinecone reads require your credentials. The deterministic agent example uses a model stub with the real Agents SDK, MCP transport, service and algorithms. Spark execution is an extension interface, not an implemented backend.
+- **PCA + DBSCAN:** bounded parameter search, explicit noise assignments, cluster summaries, and 3D PCA coordinates for plots.
+- **MiniBatch K-means:** clustering with a specified cluster count.
+- **Topic labels:** c-TF-IDF terms and phrases within each cluster, plus representative record excerpts.
+- **Jobs:** process isolation, bounded concurrency (default **1**), queueing, cancellation, persistent results, and paging.
 
-## Try real data with one command
+The caller supplies embeddings and optional text. Database connections, query embedding, retrieval, chat UI, and plots belong to [Vector Chat](https://github.com/EigenLake-Org/vector-chat). This core contains only the analysis worker and its contracts.
 
-With Docker running, execute:
+## Python quickstart
 
 ```bash
-./scripts/try-food-demo.sh
-```
-
-This downloads and verifies **1,000 food reviews with precomputed OpenAI embeddings**, indexes them into Qdrant, and produces a report using all four ML operations through MCP. **No API key or host Python installation is needed.** Open `demo-output/food-review-report.md` afterward.
-
-For a live OpenAI agent, set `OPENAI_API_KEY` and `OPENAI_MODEL`, then run `./scripts/try-food-demo.sh agent`.
-
-[Full food-review demo guide](docs/food-demo.md) · [Qdrant dashboard](http://localhost:6333/dashboard)
-
-## Run the local SDK demo
-
-Use Python 3.13 for the reproducible constrained setup; the tested host uses Python 3.13.1. Package metadata permits older Python 3.11+ with compatible dependency resolution, but those combinations are unverified. macOS and Linux are supported for the service process supervisor.
-
-```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[sentiment,server,agents,test,qdrant,weaviate,pgvector,pinecone]' -c requirements-tested.txt
-python -m examples.sdk_demo
+pip install -c requirements-tested.txt -e '.[server,test]'
+python examples/sdk_demo.py
 pytest -q
 ```
 
-`requirements-tested.txt` records the exact tested dependencies and can be used as constraints. Core imports do not require database clients, MCP, the Agents SDK, or VADER.
+The demo uses small synthetic support-ticket vectors; it does not download a dataset or embedding model.
 
 ```python
-from sklearn.cluster import MiniBatchKMeans
 import vector_tools as vt
-from vector_tools.demo import tickets
 
-data = vt.from_records(tickets()).sample(n=50, seed=42).materialize()
-clusters = vt.cluster(data, estimator=MiniBatchKMeans(n_clusters=4, random_state=42))
-print(clusters.summary())
-print(vt.topics(data, clusters=clusters).summary())
-print(vt.sentiment(data, clusters=clusters).summary())
-print(vt.outliers(data).top(n=5))
+# records: [{"id": "...", "vector": [...], "text": "...", "metadata": {...}}]
+data = vt.from_records(records).materialize()
+results = vt.analyze(data, [
+    {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
+    {"id": "themes", "type": "topics", "clusters_from": "groups",
+     "parameters": {"ngram_max": 2}},
+])
+assignments = results["groups"].rows  # id, cluster_id, pca_3d
+labels = results["themes"].rows       # cluster_id, weighted terms
 ```
 
-For topic phrases as well as single words, use `vt.topics(data, clusters=clusters, ngram_max=2)`.
-The same setting works through MCP with a dependent operation:
+DBSCAN requires at least three nonzero vectors. If no grid candidate qualifies, the result reports `no_valid_candidate` and marks every record unassigned (`-1`). See [contracts](docs/contracts.md) for limits and selection rules.
 
-```json
-{"id":"themes","type":"topics","clusters_from":"groups","parameters":{"ngram_max":2,"top_n":15}}
-```
-
-`ngram_max` accepts 1–3 and defaults to 1. Phrase counts are extracted within each record before being aggregated by cluster, so phrases cannot cross record boundaries. Topic results contain weighted c-TF-IDF terms; the dependent clustering result provides representative examples. Fetch all topic rows with `get_result_page` when the summary's 20-topic preview is insufficient.
-
-The demonstration has 62 explicitly synthetic tickets: three known themes plus two unusual embedding points. Its embeddings are seeded Gaussian vectors around hand-selected centers, not embeddings from a language model. Counts refer to vector records; parent ticket IDs are retained but not deduplicated.
-
-## Run MCP and agent examples
-
-```sh
-# A real stdio MCP client launches the service, submits a job and inspects results.
-python -m examples.mcp_client
-
-# A deterministic model stub drives the REAL Agent/Runner/MCP/ML path.
-python -m examples.agent_client --deterministic
-
-# A live OpenAI model needs these application-side variables.
-export OPENAI_API_KEY='...'
-export OPENAI_MODEL='your-available-model-id'
-python -m examples.agent_client
-```
-
-The agent host polls pending jobs in application code and resumes with the original conversation and completed result handles. Keep the stdio context open for that entire flow.
-
-## Docker and local databases
-
-```sh
-docker compose --profile local up -d --build
-export PGVECTOR_DSN='postgresql://vector:vector@localhost:5432/vector'
-python -m examples.seed_sources qdrant weaviate pgvector
-export VECTOR_ML_TRANSPORT=http
-export VECTOR_ML_MCP_URL=http://localhost:8000/mcp
-export VECTOR_ML_MCP_TOKEN=local-demo-token
-export VECTOR_ML_SOURCE_ID=qdrant
-python -m examples.mcp_client
-python -m examples.agent_client --deterministic
-VECTOR_ML_LIVE=1 pytest -q tests/test_live_sources.py
-```
-
-The demo Compose configuration binds published ports to loopback. Change the demo token and configure a TLS reverse proxy for remote deployment. The `qdrant`, `weaviate`, and `pgvector` profiles start individual databases; `local` starts all three. The default service also works against the built-in `demo` source without database profiles.
-
-## Documentation
-
-- [Architecture, data movement and worker lifecycle](docs/architecture.md)
-- [Sources, selection semantics and capability matrix](docs/sources.md)
-- [Analysis contracts, limits and result handling](docs/contracts.md)
-- [Agents SDK integration and observed workflow](docs/agents.md)
-- [Verification evidence and remaining checks](docs/verification.md)
-- [Original build specification](docs/build-specification.md)
-
-## Repository map
-
-`vector_tools/schemas.py` defines portable contracts; `sources/` contains adapters; `datasets.py` handles lazy plans and materialization; `registry.py` validates operation plans; `operators.py` implements ML; `backends.py` defines execution and extension contracts; `artifacts.py` and `jobs.py` persist artifacts and supervise workers; `service.py` owns application services; `server.py` exposes MCP; `examples/` and `tests/` exercise the workflows.
-
-## BANKING77 DBSCAN demo
-
-PCA/DBSCAN parameter search, intent evaluation, interactive 3D plots, and SDK/MCP agent access are available on this branch. See [BANKING77 setup and agent guide](docs/banking77.md).
-
-### Query BANKING77 in Qdrant and plot clusters
+## MCP
 
 ```bash
-pip install -e '.[banking,qdrant]'
-./scripts/try-banking-query.sh
+python examples/mcp_client.py  # starts an isolated stdio server
 ```
 
-Indexes the full corpus with MiniLM, queries Qdrant, and clusters the top 2,000 matches. Open `demo-output/banking77-query/banking77_dbscan_3d.html`. Use `python -m examples.banking77_qdrant query --query "your banking question"` for another query. An optional agent tool is in `examples/banking77_query_agent.py`.
+The eight tools are `get_capabilities`, `register_records`, `run_analysis`, `get_job`, `cancel_job`, `get_summary`, `get_examples`, and `get_result_page`. An agent registers records, submits a clustering/topic plan, then reads results. Application code polls jobs and renders plots from the returned coordinates. Large inputs use authenticated JSONL upload.
 
-## Run clustering on a job server
+## Docker worker
 
-Start `python -m examples.query_job_server` with `VECTOR_QUERY_TOKEN` set. Clients submit to `POST /jobs`, poll the job ID, and download the plot and results. The agent client also uses this HTTP server. See [job server setup, API and deployment](docs/query-job-server.md).
+From adjacent `vector-tools` and `vector-chat` checkouts, the chat startup script starts both containers:
 
-## Separate Docker worker for Vector Chat
+```bash
+cd ../vector-chat
+./scripts/run-docker-chat.sh                # one worker
+./scripts/run-docker-chat.sh --workers 3    # three concurrent analysis jobs
+```
 
-The `chat-worker` Compose profile runs authenticated core HTTP MCP on `http://127.0.0.1:8020/mcp`, with its own persistent volume and spawned analysis processes. PCA, DBSCAN and c-TF-IDF execute there; the chat sends all Qdrant matches and retrieves results through MCP. See [worker setup and upload contract](docs/chat-worker.md). The companion Vector Chat repository includes a one-command setup script that generates the bearer token and starts the worker.
+For the core worker alone:
+
+```bash
+export VECTOR_CHAT_WORKER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export VECTOR_CHAT_WORKERS=1
+docker compose --profile chat-worker up -d --build --wait chat-worker
+```
+
+The MCP URL is `http://127.0.0.1:8020/mcp`; use the generated token as bearer authentication. `/health` reports worker count. For a local Qdrant database, optionally run `docker compose --profile qdrant up -d qdrant`. The worker itself does not connect to it.
+
+One worker container runs a supervisor and up to 1–16 job processes. Counts above one divide its 8 GiB working-memory estimate across jobs; CPU and container memory stay fixed. Start with one for large selections. [Worker setup](docs/chat-worker.md) covers storage and lifecycle.
+
+## Repository
+
+| Path | Purpose |
+| --- | --- |
+| `vector_tools/density.py` | PCA, DBSCAN search, noise and plot coordinates |
+| `vector_tools/operators.py` | K-means and c-TF-IDF labels |
+| `vector_tools/jobs.py` | Supervisor, worker processes, cancellation |
+| `vector_tools/service.py`, `server.py` | Durable analysis API and MCP transport |
+| `config/chat-worker.json` | Worker limits and authentication config |
+| `examples/` | SDK and native MCP clustering demos |
+| `tests/` | Algorithms, contracts, jobs and transport checks |
+
+This cleanup removes the former sentiment/outlier operations, source-connector APIs, Spark placeholder, Arrow export, and separate ingestion/query demos. Clients must retrieve their data and call `register_records`. Vector Chat already uses this workflow. Existing completed result artifacts remain readable; no data migration or deletion is performed.

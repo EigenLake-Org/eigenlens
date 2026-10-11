@@ -1,5 +1,4 @@
 import json
-import math
 import time
 import pytest
 from vector_tools.config import Config
@@ -33,24 +32,32 @@ def test_configured_default_is_preserved(monkeypatch):
 
 
 def test_two_real_jobs_run_and_third_waits(tmp_path,monkeypatch):
+    from vector_tools.demo import tickets
+    from worker_helpers import paused_cluster_worker, wait_started
     monkeypatch.setenv('VECTOR_ML_DATA',str(tmp_path))
     monkeypatch.setenv('VECTOR_ML_WORKERS','2')
     monkeypatch.setenv('VECTOR_ML_TOTAL_WORKING_BYTES',str(128*1024**2))
     service=Service()
+    service.supervisor.worker_target=paused_cluster_worker
     try:
-        records=[{'id':str(i),'vector':[math.sin(i),math.cos(i),float(i%7),float(i%11)],'text':'Synthetic concurrency test'} for i in range(10000)]
-        ds=service.register_records('local',records=records)
-        ops=[{'id':'forest','type':'outliers','parameters':{'n_estimators':1000,'max_samples':10000}}]
+        ds=service.register_records('local',records=[r.model_dump() for r in tickets()])
+        ops=[{'id':'groups','type':'cluster','parameters':{'n_clusters':3}},
+             {'id':'themes','type':'topics','clusters_from':'groups'}]
         jobs=[service.run_analysis('local',ds['dataset_id'],ops)['job_id'] for _ in range(3)]
-        deadline=time.monotonic()+30
-        while len(list((tmp_path/'artifacts').glob('data_*.json')))<2:
-            assert time.monotonic()<deadline
-            assert all(service.get_job('local',id)['status'] not in {'failed','cancelled'} for id in jobs)
-            time.sleep(.05)
+        for job_id in jobs[:2]:wait_started(tmp_path, job_id)
         assert [service.get_job('local',id)['status'] for id in jobs]==['running','running','queued']
         with service.supervisor.mutex:
             assert len(service.supervisor.running)==2
             assert len({p.pid for p,_,_ in service.supervisor.running.values()})==2
-        for id in jobs:assert service.cancel_job('local',id)['status']=='cancelled'
-        assert not service.supervisor.running
+        assert service.cancel_job('local',jobs[0])['status']=='cancelled'
+        assert service.get_job('local',jobs[1])['status']=='running'
+        (tmp_path/'release').touch()
+        deadline=time.monotonic()+30
+        for job_id in jobs[1:]:
+            while (job:=service.get_job('local',job_id))['status'] not in {'succeeded','failed','cancelled'}:
+                assert time.monotonic()<deadline
+                time.sleep(.05)
+            assert job['status']=='succeeded', job
+            assert service.get_summary('local',job['results']['groups'])['processed']==62
+            assert service.get_summary('local',job['results']['themes'])['processed']==62
     finally:service.close()

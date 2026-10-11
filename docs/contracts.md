@@ -1,110 +1,65 @@
-# Analysis and result contracts
+# Clustering contracts
 
-## Portable requests
+## Records and scopes
 
-Schemas use Pydantic with unknown fields rejected and `schema_version: "1.0"`. Operations accept installed algorithm names and typed JSON parameters; remote requests cannot supply Python estimators, import paths or executable code. A plan has 1–16 uniquely named operations. Dependencies are validated and ordered before launching a worker. Topics require a cluster dependency; sentiment may aggregate by a cluster dependency.
+A record contains `id` (unique string), `vector` (finite, nonempty dense array), optional `text`, `metadata`, and `parent_id`. Clustering requires vectors of the same dimension on every selected record. Text is optional; absent text produces empty terms or a missing-text count. Counts refer to vector records; parent IDs do not deduplicate records.
+
+`register_records` accepts exactly one of an inline `records` list or a simple `.jsonl` `artifact_name` staged in `ingress/<caller>/`. Registration rejects duplicate IDs, unknown fields, excessive rows/bytes and invalid scopes. `selection_scope` defaults to `retrieval_results`; use `complete_selection` only when the caller supplies the entire intended selection. The core never infers whether a database retrieval is complete.
+
+The SDK additionally provides bounded in-memory `.ids()`, `.filter()` and seeded `.sample()`. Sampling is explicit and deterministic by record ID. Materialization fails on exceeded limits instead of silently truncating.
+
+## Plans
 
 ```json
-{
-  "dataset_id": "ds_HANDLE",
-  "operations": [
-    {"id": "groups", "type": "cluster", "algorithm": "minibatch_kmeans", "parameters": {"n_clusters": 30, "random_state": 42}},
-    {"id": "themes", "type": "topics", "clusters_from": "groups", "representation": "ctfidf"},
-    {"id": "mood", "type": "sentiment", "model": "configured-default", "clusters_from": "groups"},
-    {"id": "odd", "type": "outliers", "algorithm": "isolation_forest"}
-  ],
-  "execution": {"mode": "async", "backend": "auto"},
-  "idempotency_key": "application-generated-stable-key"
-}
+[
+  {"id":"groups","type":"cluster","algorithm":"dbscan_search"},
+  {"id":"themes","type":"topics","clusters_from":"groups","parameters":{"ngram_max":2}}
+]
 ```
 
-`auto` chooses local when every operation is supported. Spark and unregistered algorithms fail with an actionable alternative; no algorithm is silently changed. The service supports asynchronous requests; synchronous execution uses the direct SDK. The SQL/example source fixture has only 62 records, so choose cluster counts accordingly.
+Operation IDs must be unique. A plan contains 1–16 operations; topic operations must reference a cluster operation in that plan. The registry orders dependencies. Unknown operations, algorithms, fields, parameters and unavailable backends fail validation before queueing. Service execution is asynchronous and local; use the Python SDK for synchronous calls.
 
-## Algorithms
+| Operation | Algorithm | Parameters |
+| --- | --- | --- |
+| `cluster` | `minibatch_kmeans` (default) | `n_clusters`, `random_state`, `batch_size`, `n_init`, `max_iter`, `normalize` |
+| `cluster` | `dbscan_search` | `pca_components`, `eps_values`, `min_samples_values`, `max_noise_ratio`, `silhouette_sample_size`, `random_state`, `label_field` |
+| `topics` | `ctfidf` | `top_n`, `stop_words`, `ngram_max` |
 
-### Clustering
+DBSCAN L2-normalizes embeddings before PCA and normalizes the reduced coordinates afterward. Defaults search eps 0.30–0.80 in 0.05 increments and min_samples 5, 10, 15, with at most 64 grid combinations. The winning candidate has at least two clusters, no more than `max_clusters`, noise strictly below the threshold (default 70%), and the highest sampled silhouette among non-noise points. Ties use the first grid entry. No valid candidate returns diagnostics with all rows unassigned (`-1`), not a fabricated clustering. Optional metadata labels are used only for post-hoc evaluation.
 
-MiniBatchKMeans runs on stored dense embeddings. Default cluster count is `min(max_clusters, max(1, min(8, floor(sqrt(N)))))`. Defaults include seed 42 and `n_init=3`; callers can override supported parameters. Requested clusters must not exceed usable records or the configured cluster limit. `normalize=true` applies L2 normalization before Euclidean clustering; otherwise Euclidean distance uses supplied values, even if the source uses another search metric. Effective sklearn parameters and that assumption are recorded.
+The 3D PCA projection is separate from the clustering space and preserves all record IDs. c-TF-IDF weights terms within each cluster; phrases never cross record boundaries. `ngram_max` supports 1–3. Noise may have terms, but does not represent a discovered topic. Terms and clusters are exploratory evidence.
 
-Results retain assignments, sizes, centroids and inertia. Representatives are the five closest assigned records to each centroid, with ties broken by ID. MCP summaries omit full centroids and return their shape; full centroids remain in the result artifact. Python convenience methods accept exact `MiniBatchKMeans` instances and preserve their configuration. Unregistered custom estimator subclasses are rejected instead of being misrepresented as portable algorithms.
+## MCP tools and results
 
-### Topic representation
+| Tool | Purpose |
+| --- | --- |
+| `get_capabilities` | Algorithms, parameters, backend and active limits |
+| `register_records` | Persist caller-owned input snapshot |
+| `run_analysis` | Validate and enqueue; return job handle |
+| `get_job` | Status, error or operation-to-result handles |
+| `cancel_job` | Stop queued/running job, preserve already completed result |
+| `get_summary` | Compact counts, scope, parameters and provenance |
+| `get_examples` | Up to 100 representative IDs and excerpts |
+| `get_result_page` | Up to 1,000 rows and a result-bound cursor |
 
-Text is concatenated by cluster. CountVectorizer extracts up to 20,000 terms, with English stop words by default. c-TF-IDF is:
+Jobs progress through `queued`, `running`, then `succeeded`, `failed` or `cancelled`. Reusing an owner-scoped `idempotency_key` with the identical request returns the same job; a different request fails. Application code should poll with backoff. A full queue rejects a submission before creating a job.
 
-`L1-normalized class term frequency × log(1 + average class token count / total corpus frequency of the term)`.
+Results contain immutable IDs, dataset fingerprints, effective parameters, library versions, source scope and count semantics. Worker results include execution hostname and PID. Summaries omit centroids and show at most 20 topic groups with 10 terms each; page results to obtain full output. Pages for DBSCAN contain `id`, `cluster_id` and `pca_3d`; topic pages contain weighted terms. Cursors cannot be reused for another result. Dataset, job and result handles are caller-scoped.
 
-This is group representation, not a separate clustering algorithm. Terms are ordered by weight with deterministic lexical tie-breaking. Default `top_n=10`. Empty/stopword-only vocabularies return empty terms and `empty_vocabulary`; missing text is counted. Clustering fingerprints and record-ID coverage must match the materialized dataset. MCP summaries show at most 20 groups and 10 terms per group; use result pages for complete term outputs.
+## HTTP JSONL upload
 
-### Sentiment
+MCP uses `/mcp`. Inline RPC requests are capped at 2 MiB. For larger input:
 
-VADER 3.3.2 is an English lexicon-and-rule sentiment model. The optional `sentiment` extra installs its bundled lexicon; inference requires no API or network download. If the package or lexicon is missing, capability discovery reports it and sentiment requests fail before a worker is launched. The model identity, package version and lexicon-content SHA-256 are recorded.
+1. POST newline-delimited record JSON to `/ingress/<unique-name>.jsonl` with `Content-Type: application/x-ndjson` and bearer authentication.
+2. Call `register_records` with that `artifact_name` and the appropriate scope.
+3. DELETE the staging URL after registration, including when registration fails.
 
-Text is processed in configurable batches (default 128). Compound scores range from −1 to +1. Positive means compound ≥ 0.05; negative means compound ≤ −0.05; otherwise neutral. Thresholds are configurable. Positive, neutral and negative scores are lexical proportions, **not calibrated probabilities**. Embedding similarity is not used for sentiment. This baseline has English and domain limitations and is not a transformer classifier.
+Upload names accept letters, digits, underscores and hyphens, followed by `.jsonl`. No external URLs or arbitrary paths are accepted. Uploads enforce `max_bytes` while streaming and publish only complete files. Existing filenames return 409. Different callers have separate staging directories. Registration validates records and row limits; malformed input does not create a dataset. Staging cleanup does not delete the registered snapshot.
 
-Missing/blank text is skipped. Cluster aggregates report the count of scored vector records as denominator, missing text count, label counts and mean compound score. Empty groups have a null mean. Parent documents are not deduplicated.
+HTTP authentication maps bearer tokens to configured callers. Non-loopback startup requires a token. `/health` is public and reports supervisor health and configured worker slots. Loopback HTTP permits token-free local access only when no token is configured. Stdio uses the configured local caller without HTTP authentication.
 
-### Outliers
+## Limits and persistence
 
-IsolationForest preserves `score_samples` as `raw_score` and publishes `anomaly_score = -raw_score`. Higher public scores mean more anomalous. Results also retain `decision_function`; negative values count as flagged by the fitted threshold. Rows sort by descending anomaly score, then record ID. Default seed is 42 and service inference uses one local job; `normalize` is explicit. Exact `IsolationForest` instances are accepted in the direct Python convenience method.
+Default SDK/service limits are 10,000 rows, 64 MiB serialized input, 256 MiB estimated working memory, one concurrent job, 32 pending jobs, and a 300-second timeout. `config/chat-worker.json` raises these to 20,000 rows, 512 MiB input, 8 GiB working memory, 16 pending jobs and 1,800 seconds, retaining one concurrent job by default.
 
-## Result contracts
-
-Each `Result` contains its result ID, run/job ID, operation ID/type, dataset fingerprint, source identity, scope, processed/skipped counts, effective parameters, package versions, timestamp, backend, summary, full rows and selected text examples. Full outputs are plain JSON; no sklearn or Spark classes appear in public schemas.
-
-All counts refer to vector records. Parent IDs are retained and unique non-null parent counts are reported for context, but there is no implicit parent-ticket aggregation. Missing requested IDs are skipped and counted. Invalid or missing vectors required by an operation, incompatible dimensions and non-finite numbers reject execution. Text-only sentiment can operate on records without embeddings. Empty jobs fail explicitly; direct `.materialize()` may return an empty dataset for inspection.
-
-`get_summary` returns compact evidence; `get_examples` returns 1–100 examples with text truncated to 1,000 characters; `get_result_page` returns up to 1,000 output rows. Cursors include immutable result identity and fingerprint, and are rejected for other results. Source record IDs are preserved in assignments, sentiment and outlier rows. Dataset artifacts retain the complete selected text/metadata. A result handle is inaccessible to another principal and unavailable artifacts produce explicit errors.
-
-## Limits
-
-| Limit | Default |
-|---|---:|
-| Retained selected records | 10,000 |
-| Scanned records | 100,000 |
-| Selected serialized content | 64 MiB |
-| Total serialized scan content | 4 × selected byte budget |
-| Vector dimensions | 65,536 maximum contract length |
-| Estimated ML working allocation | 256 MiB |
-| Source batch | 256 (configurable 1–1,000) |
-| Clusters | 256 |
-| Concurrent workers | 2 |
-| Queued + running jobs | 32 |
-| Worker time including startup/source reads | 300 seconds |
-| HTTP request body | 2 MiB |
-
-Limits apply before unbounded selection collection. Sampling uses a bounded heap. Dense matrix copies and cluster-distance allocations receive additional estimates; the Docker service also has a 1 GiB container limit. Estimates are not an exact Python RSS guarantee; source SDKs can allocate one response batch before the dataset layer checks it, and sparse text/model overhead varies. Operators should keep batch sizes and container limits appropriate for their record dimensions and text lengths. Large or distributed workloads must use a future installed backend, not disable all limits.
-
-## Artifact registration
-
-Caller applications can invoke `register_records` with bounded records. For larger inputs, stage UTF-8 JSONL under `<data_dir>/ingress/<caller>/<filename>.jsonl`, then invoke `register_records(artifact_name="filename.jsonl")`. The service enforces its row/byte limits and only accepts a simple filename resolved inside that caller's ingress directory. URLs, arbitrary paths and another service's opaque handles are not resolved.
-
-Registration defaults to `selection_scope="retrieval_results"`; applications may explicitly choose `complete_selection` for a full caller-provided selection. Do not claim a top-k result set represents an entire collection. Operators mounting external artifacts are responsible for the provenance of supplied content.
-
-## Idempotency and interruption
-
-A nonempty per-request idempotency key is unique within the caller. An identical request returns the original job. Reusing the key with a changed request raises an error. Retries of a completed, failed or cancelled job do not create another run. To intentionally rerun, use a new key.
-
-Completed result artifacts are immutable and survive restart. Interrupted work is marked failed; restarting the service does not restart ML automatically. Cancellation reports the actual terminal outcome only after the worker has stopped. Artifact retention/expiration and garbage collection are operator responsibilities in this MVP; no automatic expiration is currently enabled.
-
-## Primary implementation references
-
-- [MiniBatchKMeans](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.MiniBatchKMeans.html)
-- [IsolationForest score conventions](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html)
-- [BERTopic c-TF-IDF weighting](https://maartengr.github.io/BERTopic/getting_started/ctfidf/ctfidf.html)
-- [VADER reference implementation](https://github.com/cjhutto/vaderSentiment)
-- [Weaviate iteration](https://docs.weaviate.io/weaviate/manage-objects/read-all-objects)
-- [pgvector](https://github.com/pgvector/pgvector)
-- [Pinecone ID listing](https://docs.pinecone.io/guides/manage-data/list-record-ids)
-
-### HTTP JSONL upload
-
-Authenticated clients can stream `POST /ingress/<filename>.jsonl` with `Content-Type: application/x-ndjson`, using the same bearer token as MCP. The filename must match `[A-Za-z0-9_-]{1,128}.jsonl`. Uploads are limited by `limits.max_bytes` while streaming; this endpoint does not use the smaller 2 MiB MCP RPC limit. It publishes the file atomically only after the complete stream arrives and never replaces an existing artifact. Responses are 201 on success, 400 for invalid names/lengths, 401 for unauthorized requests, 409 for an existing file, 413 for excessive bytes, and 415 for the wrong content type.
-
-Then call `register_records(artifact_name="filename.jsonl", selection_scope="retrieval_results")` or `complete_selection`, as appropriate. Registration validates the JSONL records and copies them into a durable dataset artifact. Finally use authenticated `DELETE /ingress/<filename>.jsonl` to remove the staging file; deletion does not remove the registered dataset. Both routes resolve only inside the authenticated caller's ingress directory. An interrupted upload removes its temporary file. Abandoned completed uploads and registered artifacts require operator cleanup; retention quotas across files are not implemented.
-
-Worker result summaries include `execution_host` and `worker_pid` for diagnosing where computation ran. Container workers still report the `local` compute backend because the algorithms run locally within that container.
-
-### Worker count overrides
-
-`VECTOR_ML_WORKERS` overrides `limits.max_jobs` at startup with an integer from 1–16. Without it, the configured limit is preserved. `VECTOR_ML_TOTAL_WORKING_BYTES` optionally defines a shared algorithm working-memory estimate; the service divides it by the effective number of slots to set each job's `max_working_bytes`. Validation rejects malformed values and insufficient per-job budgets. Worker subprocesses inherit the same configuration. `/health` includes the active `workers` count; `get_capabilities` reports the effective job and memory limits.
+`VECTOR_ML_WORKERS` supports 1–16 slots. Optional `VECTOR_ML_TOTAL_WORKING_BYTES` divides a shared estimate across slots. Compose passes an 8 GiB shared estimate and enforces an 8 GiB container limit. Memory estimates are conservative guards, not exact RSS guarantees; DBSCAN's quadratic worst case can reject large selections. Timeouts and cancellation terminate the process. Two supervisors cannot share a data directory. Restart marks incomplete jobs failed and preserves completed artifacts. No automatic retention policy exists.

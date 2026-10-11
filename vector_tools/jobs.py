@@ -2,16 +2,14 @@
 import fcntl
 import multiprocessing as mp
 import os
-import signal
 import socket
 import threading
 import time
-import traceback
 from .artifacts import Store
-from .config import Config, close_source
+from .config import Config
 from .datasets import Dataset
 from .schemas import Selection, VTError
-from .sources import InMemory
+from .records import InMemory
 from .backends import LocalBackend
 from .registry import REGISTRY, plan
 
@@ -27,7 +25,6 @@ def worker(root, config_path, job_id, owner):
                 os._exit(70)
     threading.Thread(target=watch_parent, daemon=True).start()
     store = Store(root)
-    source = None
     try:
         config = Config(config_path)
         job = store.job(owner, job_id)
@@ -35,12 +32,9 @@ def worker(root, config_path, job_id, owner):
         spec = store.get(owner, payload["dataset_id"], "ds")
         ordered = plan(payload["operations"], payload["execution"]["backend"], config.limits)
         store.update_job(job_id, "running")
-        if "records" in spec:
-            source = InMemory(spec["records"], name=spec.get("name", "registered"))
-        else:
-            if spec.get("source_config") != config.raw.get("sources", {}).get(spec["source_id"]):
-                raise VTError("Source configuration changed since dataset creation; create a new dataset handle")
-            source = config.source(spec["source_id"], owner)
+        if "records" not in spec:
+            raise VTError("Only registered record datasets are supported; use register_records")
+        source = InMemory(spec["records"], name=spec.get("name", "registered"))
         data = Dataset(source, Selection.model_validate(spec["selection"]), config.limits).materialize(
             fields={"metadata", "text"} | set().union(*(REGISTRY[o.type]["fields"] for o in ordered)))
         # All operations share this one execution-time materialization.
@@ -55,14 +49,11 @@ def worker(root, config_path, job_id, owner):
             refs[op_id] = result.result_id
         store.update_job(job_id, "succeeded", refs)
     except BaseException as exc:
-        # Source/driver exceptions can contain credentials; only controlled errors are exposed.
+        # Internal exceptions may contain private records; only controlled errors are exposed.
         message = str(exc) if isinstance(exc, VTError) else f"{type(exc).__name__}: execution failed; inspect service diagnostics"
         store.update_job(job_id, "failed", error=message)
         import sys
         print(f"Job {job_id} failed ({type(exc).__name__})", file=sys.stderr)
-    finally:
-        if source is not None:
-            close_source(source)
 
 class Supervisor:
     def __init__(self, config, worker_target=worker):

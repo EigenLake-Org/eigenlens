@@ -1,9 +1,0 @@
-{
-  "data_dir": ".vector-ml/query-jobs",
-  "limits": {"max_jobs": 1, "max_pending_jobs": 16, "max_seconds": 600, "max_rows": 2000, "max_working_bytes": 536870912},
-  "query_source": {
-    "url": "http://localhost:6333",
-    "collection": "banking77_minilm",
-    "manifest": ".vector-ml/banking77/ingress/local/banking77.manifest.json"
-  }
-}

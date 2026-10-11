@@ -14,9 +14,9 @@ def uploads(tmp_path,monkeypatch):
     monkeypatch.delenv('VECTOR_ML_DATA',raising=False)
     config_path=tmp_path/'config.json'
     config_path.write_text(json.dumps({'data_dir':str(tmp_path/'data'),
-        'limits':{'max_bytes':4*1024*1024},'sources':{},'callers':{
-            'local':{'sources':[],'token_env':'VECTOR_ML_MCP_TOKEN'},
-            'other':{'sources':[],'token_env':'OTHER_TOKEN'}}}))
+        'limits':{'max_bytes':4*1024*1024},'callers':{
+            'local':{'token_env':'VECTOR_ML_MCP_TOKEN'},
+            'other':{'token_env':'OTHER_TOKEN'}}}))
     config=Config(str(config_path));service=Service(config)
     try:
         server=build_server(service)

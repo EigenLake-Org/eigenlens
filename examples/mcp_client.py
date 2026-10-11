@@ -1,4 +1,4 @@
-"""Real MCP client workflow for any configured source; no model needed."""
+"""Native MCP clustering workflow over stdio or authenticated HTTP; no model needed."""
 import asyncio
 import json
 import os
@@ -9,10 +9,8 @@ from mcp.client.stdio import stdio_client
 from mcp.client.streamable_http import streamable_http_client
 
 OPERATIONS = [
-    {"id":"groups", "type":"cluster", "parameters":{"n_clusters":4, "random_state":42}},
-    {"id":"themes", "type":"topics", "clusters_from":"groups"},
-    {"id":"sentiment", "type":"sentiment", "clusters_from":"groups"},
-    {"id":"outliers", "type":"outliers"},
+    {"id":"groups", "type":"cluster", "algorithm":"dbscan_search"},
+    {"id":"themes", "type":"topics", "clusters_from":"groups", "parameters":{"ngram_max":2}},
 ]
 
 def content(result):
@@ -63,10 +61,8 @@ async def main():
             return value
         discovered = await session.list_tools()
         await call("get_capabilities", {})
-        source = os.getenv("VECTOR_ML_SOURCE_ID", "demo")
-        await call("describe_source", {"source_id":source})
-        selection = {"ids":json.loads(os.environ["VECTOR_ML_IDS"])} if os.getenv("VECTOR_ML_IDS") else {"sample_n":62, "seed":42}
-        ds = await call("create_dataset", {"source_id":source, "selection":selection})
+        from vector_tools.demo import tickets
+        ds = await call("register_records", {"records":[r.model_dump() for r in tickets()], "selection_scope":"complete_selection"})
         job = await call("run_analysis", {"dataset_id":ds["dataset_id"], "operations":OPERATIONS, "idempotency_key":uuid.uuid4().hex})
         job = await poll(call, job["job_id"])
         if job["status"] != "succeeded":
@@ -74,6 +70,15 @@ async def main():
         for result in job["results"].values():
             await call("get_summary", {"result_id":result})
             await call("get_examples", {"result_id":result})
+            cursor = None
+            rows = []
+            while True:
+                page = await call("get_result_page", {"result_id":result, "cursor":cursor, "limit":25})
+                rows.extend(page["rows"])
+                cursor = page["next_cursor"]
+                if cursor is None:
+                    break
+            assert len(rows) == page["total"]
         print(json.dumps({"protocol_version":initialized.protocolVersion, "server_version": initialized.serverInfo.version,
                           "tools":[t.name for t in discovered.tools], "trace":trace}, indent=2))
 

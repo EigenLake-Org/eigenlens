@@ -6,7 +6,7 @@ import heapq
 import json
 import numpy as np
 from .schemas import Record, Selection, Limits, Predicate, VTError
-from .sources.base import matches, validate_selection
+from .records import matches, validate_selection
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
@@ -27,14 +27,6 @@ class Materialized:
         if any(r.vector is None for r in self.records):
             raise VTError("This operation requires dense vectors; materialize with vector projection")
         return np.asarray([r.vector for r in self.records], dtype=np.float64)
-    def to_arrow(self):
-        import pyarrow as pa
-        # JSON metadata keeps arbitrary source properties portable and schema-stable.
-        return pa.Table.from_pylist([{"source": canonical(self.source), "id": r.id,
-            "vector": r.vector, "text": r.text, "metadata_json": canonical(r.model_dump(mode="json")["metadata"]),
-            "parent_id": r.parent_id} for r in self.records], schema=pa.schema([
-                ("source", pa.string()), ("id", pa.string()), ("vector", pa.list_(pa.float64())),
-                ("text", pa.string()), ("metadata_json", pa.string()), ("parent_id", pa.string())]))
     def serializable(self):
         return {"schema_version": "1.0", "records": [r.model_dump(mode="json") for r in self.records],
                 "source": self.source, "scope": self.scope, "fingerprint": self.fingerprint,

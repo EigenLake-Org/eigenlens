@@ -1,7 +1,5 @@
-import json
 import time
 import pytest
-from vector_tools.config import Config
 from vector_tools.service import Service
 from vector_tools.schemas import VTError
 from vector_tools.demo import tickets
@@ -23,13 +21,13 @@ def service(tmp_path, monkeypatch):
     service.close()
 
 def test_durable_jobs_idempotency_access_pages(service):
-    ds = service.create_dataset("local", "demo", {"sample_n":30})
+    ds = service.register_records("local", records=[r.model_dump() for r in tickets()[:30]])
     ops = [{"id":"c", "type":"cluster", "parameters":{"n_clusters":3}}]
     job = service.run_analysis("local", ds["dataset_id"], ops, idempotency_key="test")
     duplicate = service.run_analysis("local", ds["dataset_id"], ops, idempotency_key="test")
     assert duplicate["job_id"] == job["job_id"]
     with pytest.raises(VTError, match="different"):
-        service.run_analysis("local", ds["dataset_id"], [{"id":"o","type":"outliers"}], idempotency_key="test")
+        service.run_analysis("local", ds["dataset_id"], [{"id":"c","type":"cluster", "parameters":{"n_clusters":2}}], idempotency_key="test")
     j = wait(service, job["job_id"])
     assert j["status"] == "succeeded", j
     ref = j["results"]["c"]
@@ -51,7 +49,7 @@ def test_failed_cancelled_and_artifact(service):
     ds = service.register_records("local", records=[])
     job = service.run_analysis("local", ds["dataset_id"], [{"id":"c","type":"cluster"}])
     assert wait(service, job["job_id"])["status"] == "failed"
-    ds = service.create_dataset("local", "demo", {})
+    ds = service.register_records("local", records=[r.model_dump() for r in tickets()])
     job = service.run_analysis("local", ds["dataset_id"], [{"id":"c","type":"cluster"}])
     result = service.cancel_job("local", job["job_id"])
     assert result["status"] in {"cancelled", "succeeded"}
@@ -82,7 +80,7 @@ def test_registration_scope_and_persistent_restart(tmp_path, monkeypatch):
     service = Service()
     ds = service.register_records("local", records=[r.model_dump() for r in tickets()])
     assert ds["scope"] == "retrieval_results"
-    job = service.run_analysis("local", ds["dataset_id"], [{"id":"s", "type":"sentiment"}])
+    job = service.run_analysis("local", ds["dataset_id"], [{"id":"s", "type":"cluster", "parameters":{"n_clusters":3}}])
     done = wait(service, job["job_id"])
     assert done["status"] == "succeeded"
     ref = done["results"]["s"]
@@ -96,21 +94,21 @@ def test_registration_scope_and_persistent_restart(tmp_path, monkeypatch):
     finally:
         restarted.close()
 
-def test_responsive_and_cancel_during_active_ml(service):
-    import math
-    records=[{"id":str(i),"vector":[math.sin(i),math.cos(i),float(i%7),float(i%11)],"text":"Synthetic load test"} for i in range(10000)]
-    ds=service.register_records("local",records=records)
-    job=service.run_analysis("local",ds["dataset_id"],[{"id":"heavy","type":"outliers","parameters":{"n_estimators":1000,"max_samples":10000}}])
-    deadline=time.monotonic()+30
-    while not list((service.config.root / "artifacts").glob("data_*.json")):
-        assert time.monotonic()<deadline
-        assert service.get_job("local",job["job_id"])["status"] not in {"failed","cancelled"}
-        time.sleep(.05)
-    # Data is already staged; the worker is now executing the real forest fit.
-    time.sleep(.2)
-    assert service.get_job("local",job["job_id"])["status"]=="running"
-    started=time.monotonic()
-    assert service.get_capabilities("local")["sentiment"]["available"]
-    assert time.monotonic()-started < 1
-    assert service.cancel_job("local",job["job_id"])["status"]=="cancelled"
+def test_responsive_and_cancel_active_worker(service):
+    from worker_helpers import paused_cluster_worker, wait_started
+    service.supervisor.worker_target = paused_cluster_worker
+    ds = service.register_records("local", records=[r.model_dump() for r in tickets()])
+    job = service.run_analysis("local", ds["dataset_id"], [{"id":"groups", "type":"cluster"}])
+    wait_started(service.config.root, job["job_id"])
+    started = time.monotonic()
+    assert set(service.get_capabilities("local")["operations"]) == {"cluster", "topics"}
+    assert time.monotonic() - started < 1
+    assert service.cancel_job("local", job["job_id"])["status"] == "cancelled"
     assert job["job_id"] not in service.supervisor.running
+
+def test_old_source_dataset_rejected_before_enqueue(service):
+    ds = service.store.put("local", "ds", {"source_id":"removed", "selection":{}})
+    with pytest.raises(VTError, match="register_records"):
+        service.run_analysis("local", ds, [{"id":"groups", "type":"cluster"}])
+    with service.store.connect() as db:
+        assert db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0

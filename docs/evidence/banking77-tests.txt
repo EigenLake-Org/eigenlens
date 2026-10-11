@@ -1,7 +1,0 @@
-2026-10-03
-Command: .venv/bin/pytest -q -k "not http"
-Result: 41 passed, 4 skipped, 6 deselected, 1 warning in 22.30s
-Four live connector tests skipped (services not enabled). HTTP tests deselected after socket binding was denied by the execution sandbox.
-Warning: joblib could not query physical core count; logical count used.
-New coverage: DBSCAN search, noise, label independence, ARI/NMI, invalid grids, no candidate, memory, sparse silhouette samples, empty vocabulary, topic composition, real MCP stdio and Agent/Runner with a scripted model.
-External BANKING77/model downloads, Plotly rendering, and real OpenAI requests not verified in this session.

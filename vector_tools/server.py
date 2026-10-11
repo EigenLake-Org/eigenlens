@@ -10,20 +10,19 @@ from pathlib import Path
 import re
 import tempfile
 from typing import Literal
-from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.responses import JSONResponse
 from .config import Config
 from .service import Service
-from .schemas import Record, Selection, Operation, Execution, VTError
+from .schemas import Record, Operation, Execution, VTError
 
 principal = contextvars.ContextVar("principal", default="local")
 
 def build_server(service, host="127.0.0.1", port=8000):
     server = FastMCP("Vector ML", host=host, port=port, stateless_http=True, json_response=True,
                      max_request_body_size=2 * 1024 * 1024,
-                     instructions="Inspect capabilities and source first. Create a dataset, run async analysis, poll job status, then inspect summaries and examples. Counts are vector records, not deduplicated tickets. Themes are evidence for investigation, not confirmed causes.",
+                     instructions="Inspect capabilities, register selected vector records, run async clustering and topic labels, poll job status, then inspect results and examples. Counts are vector records, not deduplicated tickets. Themes are evidence for investigation, not confirmed causes.",
                      transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True,
                         allowed_hosts=["127.0.0.1:*", "localhost:*", "service:*", "chat-worker:*", "testserver"],
                         allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://service:*", "http://chat-worker:*"]))
@@ -34,27 +33,19 @@ def build_server(service, host="127.0.0.1", port=8000):
         except VTError:
             raise
         except Exception as exc:
-            # Driver messages can expose DSNs; never return them verbatim.
-            raise VTError(f"{type(exc).__name__}: request failed; check source configuration and service diagnostics") from None
+            # Internal exceptions may contain private records; never return them verbatim.
+            raise VTError(f"{type(exc).__name__}: request failed; check request and service diagnostics") from None
     @server.tool()
     async def get_capabilities() -> dict:
-        """List authorized source IDs, algorithms, model availability, compute backends and limits."""
+        """List clustering algorithms, topic parameters, compute backend and limits."""
         return await invoke("get_capabilities")
-    @server.tool()
-    async def describe_source(source_id: str) -> dict:
-        """Inspect configured mappings, tenant/namespace, capabilities and consistency before selecting."""
-        return await invoke("describe_source", source_id)
-    @server.tool()
-    async def create_dataset(source_id: str, selection: Selection) -> dict:
-        """Create a lazy dataset from existing IDs, AND filters, or deterministic sample. Never send embeddings to the model."""
-        return await invoke("create_dataset", source_id, selection.model_dump())
     @server.tool()
     async def register_records(records: list[Record] | None = None, artifact_name: str | None = None, selection_scope: Literal["retrieval_results", "complete_selection"] = "retrieval_results") -> dict:
         """Register bounded caller records OR an application-staged JSONL filename in ingress/<caller>/. External service handles are not automatically resolvable."""
         return await invoke("register_records", [r.model_dump() for r in records] if records is not None else None, artifact_name, selection_scope)
     @server.tool()
     async def run_analysis(dataset_id: str, operations: list[Operation], execution: Execution | None = None, idempotency_key: str | None = None) -> dict:
-        """Validate a plan and submit a background local worker job. Reuse a stable idempotency key for retries. Topics require clusters_from; sentiment may aggregate by it."""
+        """Validate a plan and submit a background local worker job. Reuse a stable idempotency key for retries. Topics require clusters_from."""
         return await invoke("run_analysis", dataset_id, [o.model_dump() for o in operations], execution.model_dump() if execution else None, idempotency_key)
     @server.tool()
     async def get_job(job_id: str) -> dict:
@@ -74,7 +65,7 @@ def build_server(service, host="127.0.0.1", port=8000):
         return await invoke("get_examples", result_id, cluster_id, limit)
     @server.tool()
     async def get_result_page(result_id: str, cursor: str | None = None, limit: int = 100) -> dict:
-        """Page record assignments, sentiment scores, topic terms or ranked outliers. Cursor is bound to this immutable result."""
+        """Page cluster assignments, PCA coordinates or topic terms. Cursor is bound to this immutable result."""
         return await invoke("get_result_page", result_id, cursor, limit)
     @server.custom_route("/health", methods=["GET"])
     async def health(request):

@@ -2,16 +2,14 @@
 import base64
 import hashlib
 import json
-import sqlite3
 import uuid
 from pathlib import Path
 from .artifacts import Store, now
-from .config import Config, close_source
-from .datasets import canonical, Dataset
+from .config import Config
+from .datasets import canonical
 from .schemas import Selection, Execution, Result, Record, VTError
 from .registry import plan, REGISTRY
-from .backends import LocalBackend, SPARK_CAPABILITIES
-from .operators import VaderModel
+from .backends import LocalBackend
 from .jobs import Supervisor
 
 class Service:
@@ -22,60 +20,11 @@ class Service:
     def close(self):
         self.supervisor.close()
     def get_capabilities(self, owner):
-        try:
-            model = VaderModel()
-            sentiment = {"available": True, "model": "vader", "version": model.version}
-        except VTError as exc:
-            sentiment = {"available": False, "error": str(exc)}
-        from .sources.base import Adapter
-        source_capabilities = {}
-        for source_id in self.config.callers.get(owner, {}).get("sources", []):
-            kind = self.config.raw["sources"][source_id]["kind"]
-            caps = Adapter().capabilities()
-            if kind == "pgvector":
-                caps.update(filtered_reads="native", consistency="read-only repeatable read")
-            if kind == "demo":
-                caps.update(exact_count="native", iteration="adapter", id_fetch="adapter", projection="adapter")
-            if kind == "pinecone":
-                caps.update(iteration="unavailable", seeded_sampling="unavailable", projection="unavailable",
-                            constraints="describe_source verifies serverless deployment before enabling listing and sampling")
-            source_capabilities[source_id] = caps
-        return {"schema_version": "1.0", "source_capabilities": source_capabilities, "sources": self.config.callers.get(owner, {}).get("sources", []),
+        if owner not in self.config.callers:
+            raise VTError("Caller unauthorized")
+        return {"schema_version": "1.0",
                 "operations": {k: {"algorithm": v["algorithm"], "parameters": sorted(v["params"]), "required_fields": sorted(v["fields"]), "algorithms": {a: sorted(p) for a,p in v.get("algorithms", {v["algorithm"]: v["params"]}).items()}} for k,v in REGISTRY.items()},
-                "sentiment": sentiment, "backends": [LocalBackend().capabilities(), SPARK_CAPABILITIES], "limits": self.config.limits.model_dump()}
-    def describe_source(self, owner, source_id):
-        source = self.config.source(source_id, owner)
-        try:
-            if hasattr(source, "inspect"):
-                source.inspect()
-            if hasattr(source, "collection") and callable(source.collection):
-                source.collection()
-            return {"source_id": source_id, "identity": source.identity, "capabilities": source.capabilities(),
-                    "available_fields": ["id", "vector", "text", "metadata", "parent_id"]}
-        finally:
-            close_source(source)
-    def create_dataset(self, owner, source_id, selection):
-        selection = Selection.model_validate(selection)
-        source = self.config.source(source_id, owner)
-        try:
-            source.validate(selection)
-            if hasattr(source, "collection") and callable(source.collection):
-                source.collection()
-            if hasattr(source, "query"):
-                source.query(selection, {"vector", "text", "metadata"})
-            if selection.sample_n and selection.sample_n > self.config.limits.max_rows:
-                raise VTError("Sample exceeds max_rows")
-            if selection.ids is not None and len(selection.ids) > self.config.limits.max_scan_rows:
-                raise VTError("ID selection exceeds max_scan_rows")
-            dataset = Dataset(source, selection, self.config.limits)
-            spec = {"source_id": source_id, "source_config": self.config.raw["sources"][source_id], "selection": selection.model_dump()}
-            id = self.store.put(owner, "ds", spec)
-            return {"dataset_id": id, "scope": dataset.scope, "selection": selection.model_dump(),
-                    "count": source.count(selection) if hasattr(source, "count") else None, "count_kind": "exact" if hasattr(source, "count") else "unknown", "requested_id_count": len(selection.ids) if selection.ids is not None else None,
-                    "count_unit": "vector_records", "source": source.identity, "available_fields": ["id", "vector", "text", "metadata", "parent_id"],
-                    "read_plan": {"filter": "source" if getattr(source, "filter_pushdown", False) else "client", "sampling": "client full bounded scan" if selection.sample_n else None}}
-        finally:
-            close_source(source)
+                "backends": [LocalBackend().capabilities()], "limits": self.config.limits.model_dump()}
     def register_records(self, owner, records=None, artifact_name=None, selection_scope="retrieval_results"):
         if owner not in self.config.callers:
             raise VTError("Caller unauthorized")
@@ -111,13 +60,13 @@ class Service:
         id = self.store.put(owner, "ds", spec)
         return {"dataset_id": id, "count": len(records), "count_kind": "exact", "count_unit": "vector_records", "scope": selection_scope}
     def run_analysis(self, owner, dataset_id, operations, execution=None, idempotency_key=None):
-        self.store.get(owner, dataset_id, "ds")
+        dataset=self.store.get(owner, dataset_id, "ds")
+        if "records" not in dataset:
+            raise VTError("Only registered record datasets are supported; use register_records")
         execution = Execution.model_validate(execution or {})
         if execution.mode != "async":
             raise VTError("Service jobs require async mode. Use the Python SDK for synchronous execution.")
         ordered = plan(operations, execution.backend, self.config.limits)
-        if any(o.type == "sentiment" for o in ordered):
-            VaderModel()  # Availability check before launch.
         payload = {"dataset_id": dataset_id, "operations": [o.model_dump() for o in ordered], "execution": execution.model_dump()}
         digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
         if idempotency_key is not None and not 1 <= len(idempotency_key) <= 128:

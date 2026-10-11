@@ -40,7 +40,7 @@ class Limits(Contract):
     max_scan_rows: int = Field(default=100000, ge=1)
     max_bytes: int = Field(default=64 * 1024 * 1024, ge=1024)
     batch_size: int = Field(default=256, ge=1, le=1000)
-    max_jobs: int = Field(default=2, ge=1, le=16)
+    max_jobs: int = Field(default=1, ge=1, le=16)
     max_pending_jobs: int = Field(default=32, ge=1)
     max_clusters: int = Field(default=256, ge=1)
     max_working_bytes: int = Field(default=256 * 1024 * 1024, ge=1024)
@@ -52,15 +52,10 @@ class Parameters(Contract):
     batch_size: int | None = Field(default=None, ge=1, le=10000)
     n_init: int | Literal["auto"] | None = None
     max_iter: int | None = Field(default=None, ge=1, le=10000)
-    n_estimators: int | None = Field(default=None, ge=1, le=1000)
-    max_samples: int | float | Literal["auto"] | None = None
-    contamination: float | Literal["auto"] | None = None
     normalize: bool | None = None
     top_n: int | None = Field(default=None, ge=1, le=100)
     ngram_max: int | None = Field(default=None, ge=1, le=3)
     stop_words: Literal["english"] | None = None
-    positive_threshold: float | None = Field(default=None, ge=0, le=1)
-    negative_threshold: float | None = Field(default=None, ge=-1, le=0)
     pca_components: int | None = Field(default=None, ge=1, le=512)
     eps_values: list[float] | None = Field(default=None, min_length=1, max_length=32)
     min_samples_values: list[int] | None = Field(default=None, min_length=1, max_length=16)
@@ -84,25 +79,15 @@ class Parameters(Contract):
 
 class Operation(Contract):
     id: str = Field(pattern=r"^[a-zA-Z][a-zA-Z0-9_]{0,63}$")
-    type: Literal["cluster", "topics", "sentiment", "outliers"]
+    type: Literal["cluster", "topics"]
     algorithm: str | None = None
     parameters: Parameters = Field(default_factory=Parameters)
     clusters_from: str | None = None
     representation: Literal["ctfidf"] | None = None
-    model: str | None = None
 
 class Execution(Contract):
     mode: Literal["async", "sync"] = "async"
-    backend: Literal["auto", "local", "spark"] = "auto"
-
-class DatasetRef(Contract):
-    dataset_id: str
-    source: dict[str, Any]
-    selection: Selection
-    scope: Literal["retrieval_results", "sample", "filtered_selection", "complete_selection"]
-    count: int | None = None
-    count_kind: Literal["exact", "estimated", "unknown"] = "unknown"
-    count_unit: Literal["vector_records"] = "vector_records"
+    backend: Literal["auto", "local"] = "auto"
 
 class Result(Contract):
     result_id: str

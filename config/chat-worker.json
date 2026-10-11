@@ -9,7 +9,8 @@
     "max_pending_jobs": 16
   },
   "callers": {
-    "local": {"sources": [], "token_env": "VECTOR_ML_MCP_TOKEN"}
-  },
-  "sources": {}
+    "local": {
+      "token_env": "VECTOR_ML_MCP_TOKEN"
+    }
+  }
 }

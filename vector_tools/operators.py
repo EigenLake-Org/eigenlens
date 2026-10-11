@@ -3,13 +3,11 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 from importlib.metadata import version
-import hashlib
 import math
 import uuid
 import numpy as np
 from scipy.sparse import csr_matrix
 from sklearn.cluster import MiniBatchKMeans
-from sklearn.ensemble import IsolationForest
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import normalize as unit_normalize
 from threadpoolctl import threadpool_limits
@@ -122,69 +120,3 @@ def topics(data, clusters, representation="ctfidf", op_id="topics", run_id=None,
                   clusters.example_rows, run_id, {"missing_text": empty})
     result.processed = len(data.records) - empty
     return result
-
-class VaderModel:
-    """English lexicon/rule model; weights are shipped by vaderSentiment, no network downloads."""
-    def __init__(self):
-        try:
-            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-            self.model = SentimentIntensityAnalyzer()
-        except (ImportError, OSError) as exc:
-            raise VTError("VADER weights unavailable. Install vector-tools[sentiment]; bundled lexicons must be readable.") from exc
-        self.version = version("vaderSentiment")
-        self.fingerprint = hashlib.sha256(self.model.lexicon_full_filepath.encode()).hexdigest()
-    def infer(self, texts):
-        return [self.model.polarity_scores(t) for t in texts]
-
-def sentiment(data, model="configured-default", clusters=None, op_id="sentiment", run_id=None,
-              batch_size=128, positive_threshold=0.05, negative_threshold=-0.05):
-    if model not in {"configured-default", "vader"}:
-        raise VTError("Configured sentiment model is vader; requested model unavailable")
-    if not 1 <= batch_size <= 10000 or not -1 <= negative_threshold < positive_threshold <= 1:
-        raise VTError("Invalid batch size or sentiment thresholds")
-    adapter = VaderModel()
-    mapping = validate_clusters(data, clusters) if clusters else None
-    valid = [r for r in data.records if (r.text or "").strip()]
-    rows = []
-    for start in range(0, len(valid), batch_size):
-        batch = valid[start:start+batch_size]
-        for r, scores in zip(batch, adapter.infer([r.text for r in batch])):
-            label = "positive" if scores["compound"] >= positive_threshold else "negative" if scores["compound"] <= negative_threshold else "neutral"
-            rows.append({"id": r.id, "label": label, "scores": scores, **({"cluster_id": mapping[r.id]} if mapping is not None else {})})
-    groups = {}
-    if mapping is not None:
-        for cid in sorted(set(mapping.values())):
-            selected = [r for r in rows if r["cluster_id"] == cid]
-            groups[str(cid)] = {"denominator": len(selected), "missing_text": sum(mapping[r.id] == cid and not (r.text or "").strip() for r in data.records),
-                                "labels": dict(Counter(r["label"] for r in selected)),
-                                "mean_compound": float(np.mean([r["scores"]["compound"] for r in selected])) if selected else None}
-    result = base(data, "sentiment", op_id,
-                  {"model": "vader", "batch_size": batch_size, "positive_threshold": positive_threshold, "negative_threshold": negative_threshold,
-                   "model_version": adapter.version, "lexicon_sha256": adapter.fingerprint,
-                   "score_meaning": "compound in [-1,1]; pos/neu/neg lexicon proportions, not calibrated probabilities", "language": "English"},
-                  {"labels": dict(Counter(r["label"] for r in rows)), "denominator": len(rows), "by_cluster": groups}, rows,
-                  [example(r, **{k:v for k,v in score.items() if k != "id"}) for r, score in list(zip(valid, rows))[:20]], run_id,
-                  {"missing_text": len(data.records) - len(valid)})
-    result.versions["vaderSentiment"] = adapter.version
-    return result
-
-def outliers(data, estimator=None, op_id="outliers", run_id=None, **parameters):
-    params = dict(parameters)
-    normal = params.pop("normalize", False)
-    x = matrix(data, normal)
-    if estimator is not None and type(estimator) is not IsolationForest:
-        raise VTError("Supported estimator protocol: exact sklearn IsolationForest")
-    if estimator is None:
-        estimator = IsolationForest(**{"random_state": 42, "n_jobs": 1, **params})
-    if estimator.n_estimators > 1000:
-        raise VTError("n_estimators exceeds 1000")
-    with threadpool_limits(limits=1):
-        estimator.fit(x)
-        raw = estimator.score_samples(x)
-        decision = estimator.decision_function(x)
-    rows = sorted([{"id": r.id, "raw_score": float(s), "anomaly_score": float(-s), "decision_function": float(d)}
-                   for r, s, d in zip(data.records, raw, decision)], key=lambda r: (-r["anomaly_score"], r["id"]))
-    by_id = {r.id: r for r in data.records}
-    return base(data, "outliers", op_id, {**estimator.get_params(), "normalize": normal, "score_transform": "anomaly_score = -score_samples; higher is more anomalous"},
-                {"flagged_count": int(np.sum(decision < 0)), "score_direction": "higher is more anomalous"}, rows,
-                [example(by_id[r["id"]], **{k:v for k,v in r.items() if k != "id"}) for r in rows[:100]], run_id)
