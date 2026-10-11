@@ -6,14 +6,14 @@ Connect an MCP-capable chat agent to this server, supply records, and ask it to 
 
 ### Local stdio
 
-Follow the [README BANKING77 setup and Codex registration](../README.md#connect-mcp-to-a-chat-agent). The chat host launches the server and manages its stdin/stdout connection. Configure other local hosts with:
+Follow the [README pip installation and Codex registration](../README.md#installation). The chat host launches the server and manages its stdin/stdout connection. Configure other local hosts with:
 
-- Executable: the absolute path to `<repo>/.venv/bin/python`.
-- Arguments: `-m vector_tools.server --config <absolute-repo-path>/config/banking77.json`.
-- Environment: `VECTOR_ML_DATA=<absolute-repo-path>/.vector-ml/banking77`.
+- Executable: the installed `vector-ml` command (use its absolute path if the host cannot resolve it on PATH).
+- Arguments: none for the default configuration.
+- Environment: `VECTOR_ML_DATA=<absolute-path-to-your-server-data-directory>`.
 - Caller: `local` (the stdio default).
 
-Use one server per data directory. This configuration accepts the full banking corpus; the generic default configuration has a 10,000-record limit. The prepared artifact is `<VECTOR_ML_DATA>/ingress/local/banking77.jsonl`.
+Use one server per data directory. The default configuration has a 10,000-record limit. For the full banking corpus, follow [BANKING77 setup and chat registration](../README.md#try-the-banking77-demo): pass `--config <absolute-repo-path>/config/banking77.json` and set `VECTOR_ML_DATA=<absolute-repo-path>/.vector-ml/banking77`. Its prepared artifact is `<VECTOR_ML_DATA>/ingress/local/banking77.jsonl`.
 
 ### Shared Docker HTTP server
 
@@ -217,9 +217,9 @@ For a plot, the agent/client collects every cluster page, colors points by `clus
 
 ## Natural-language chat requests
 
-After connecting and staging the records, start with:
+After the [BANKING77 setup and dedicated chat connection](../README.md#use-the-banking-dataset-in-chat), start with:
 
-> Register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then use BERTopic to find keywords and two-word phrases for those clusters. Wait for completion and show the cluster counts, unassigned count, topic terms and examples.
+> Use vector-tools-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then use BERTopic to find keywords and two-word phrases for those clusters. Wait for completion and show the cluster counts, unassigned count, topic terms and examples.
 
 Useful follow-ups:
 
@@ -246,7 +246,6 @@ The eight core tools do not connect to a database, list collections, generate em
 ## Python MCP client smoke example
 
 ```bash
-source .venv/bin/activate
 python examples/mcp_client.py
 ```
 
