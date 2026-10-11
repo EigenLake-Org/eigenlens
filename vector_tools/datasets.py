@@ -1,6 +1,7 @@
 """Lazy plans and bounded materialization with content-addressed provenance."""
 from __future__ import annotations
 from dataclasses import dataclass, replace
+from contextlib import contextmanager
 import hashlib
 import heapq
 import json
@@ -10,6 +11,15 @@ from .records import matches, validate_selection
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+@contextmanager
+def source_batches(source, selection, batch_size, fields):
+    stream = iter(source.batches(selection, batch_size, fields))
+    try:
+        yield stream
+    finally:
+        if hasattr(stream, "close"):
+            stream.close()
 
 @dataclass
 class Materialized:
@@ -55,6 +65,8 @@ class Dataset:
             return "sample"
         if self.selection.ids is not None:
             return "retrieval_results"
+        if getattr(self.source, "scope", None) == "retrieval_results":
+            return "retrieval_results"
         return "filtered_selection" if self.selection.filters else "complete_selection"
     def materialize(self, fields=None):
         selection, limits = self.selection, self.limits
@@ -65,10 +77,16 @@ class Dataset:
         if selection.ids is not None and len(selection.ids) > limits.max_scan_rows:
             raise VTError("Supplied ID list exceeds max_scan_rows")
         fields = set(fields or {"vector", "text", "metadata"})
+        with source_batches(self.source, selection, limits.batch_size, fields) as batches:
+            return self._materialize_batches(batches)
+
+    def _materialize_batches(self, batches):
+        selection, limits = self.selection, self.limits
         records, heap, seen = [], [], set()
         read_count, byte_count, scan_bytes = 0, 0, 0
         dimension = None
-        for batch in self.source.batches(selection, limits.batch_size, fields):
+        wanted_ids = set(selection.ids) if selection.ids is not None else None
+        for batch in batches:
             for r in batch:
                 read_count += 1
                 if read_count > limits.max_scan_rows:
@@ -86,6 +104,8 @@ class Dataset:
                 scan_bytes += size
                 if size > limits.max_bytes or scan_bytes > limits.max_bytes * 4:
                     raise VTError("Source read exceeds byte budget; narrow selection")
+                if wanted_ids is not None and not getattr(self.source, "id_pushdown", True) and r.id not in wanted_ids:
+                    continue
                 if not getattr(self.source, "filter_pushdown", False) and not matches(r, selection.filters):
                     continue
                 if selection.sample_n:

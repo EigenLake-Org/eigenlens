@@ -2,6 +2,76 @@
 
 The MCP server provides five database tools alongside its eight analysis tools. Adapters normalize stored records to `id`, `vector`, optional `text` and `metadata`. Retrieval registers a durable dataset; PCA/DBSCAN and BERTopic run in the existing isolated job workers.
 
+## Existing Python SDK clients
+
+`vt.from_client(client, collection, *, vector_field=None, text_field="text", query_vector=None, search_limit=1000, limits=None)` accepts an existing synchronous `qdrant_client.QdrantClient` or connected `weaviate.WeaviateClient` v4. Install the corresponding `qdrant` or `weaviate` extra. Client type detection imports optional SDKs on demand; no database request occurs until materialization.
+
+```python
+import vector_tools as vt
+
+# qdrant_client is the QdrantClient your application already created.
+data = vt.from_client(qdrant_client, "banking77_minilm",
+                      limits=vt.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
+                                       max_working_bytes=6 * 1024**3, max_seconds=1800)).materialize()
+groups = vt.cluster(data)
+themes = vt.topics(data, groups, ngram_max=2)
+
+# The same API accepts your connected WeaviateClient.
+other_data = vt.from_client(weaviate_client, "Questions",
+                           text_field="content", vector_field="body").materialize()
+```
+
+Omit `vector_field` when there is a sole dense field. Text defaults to the `text` payload/property; choose `text_field` for a different name. Database IDs become record IDs. Payloads/properties become metadata. No new embedding is generated, and the library does not read credentials from the client's internals or save a connection definition.
+
+### Search, then cluster
+
+Supply an externally generated query vector in the collection's embedding space:
+
+```python
+# query_vector comes from the same embedding model as the stored records.
+data = vt.from_client(qdrant_client, "banking77_minilm",
+                      query_vector=query_vector, search_limit=500).materialize()
+groups = vt.cluster(data)
+themes = vt.topics(data, groups)
+print(data.scope)  # retrieval_results
+```
+
+This selects up to `search_limit` nearest records with their **stored** vectors, then analyzes every selected record. It does not claim every semantic match. Full scans use scope `complete_selection`. Local `.filter(...)`, `.ids(...)` and seeded `.sample(...)` are also supported; full-scan ID/filter selection still reads all database pages and counts them against `max_scan_rows`. Filtering a semantic selection retains scope `retrieval_results`; sampling has scope `sample`.
+
+`Limits()` defaults to 10,000 selected rows, 100,000 scanned rows, 64 MiB serialized selected content and batches of 256. Row/byte limits, duplicate IDs, dimension mismatches and conflicting embedding metadata fail without returning a partial materialization. `search_limit` must fit `max_rows` and the backend's query limit. Provenance includes collection, backend, vector field, retrieval mode and available model metadata. It excludes the SDK client, connection URL and credentials; query vectors are fingerprinted.
+
+The application owns the client's lifecycle. Vector Tools never calls `connect()` or `close()` on an injected client, including after a failure. Keep it connected until materialization finishes; close it in your application's context manager or `finally` block. Reads release their iterators on failure. Configure SDK request timeouts when you create the client. `max_seconds` checks elapsed retrieval time between SDK operations and records; it cannot interrupt an in-flight SDK call. Analysis after materialization is synchronous in the calling process.
+
+### Submit the retrieved data to an MCP worker
+
+A live Python client cannot be passed in an MCP JSON tool call. When your application already owns the client, materialize locally, then use your connected MCP `ClientSession`:
+
+```python
+import json
+
+# session is an initialized mcp.ClientSession connected to the job server.
+reply = await session.call_tool("register_records", {
+    "records": [record.model_dump(mode="json") for record in data.records],
+    "selection_scope": "complete_selection" if data.scope == "complete_selection" else "retrieval_results",
+})
+if reply.isError:
+    raise RuntimeError("MCP record registration failed")
+registered = reply.structuredContent
+if registered is None:
+    registered = json.loads(next(item.text for item in reply.content if item.type == "text"))
+job = await session.call_tool("run_analysis", {
+    "dataset_id": registered["dataset_id"],
+    "operations": [
+        {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
+        {"id": "themes", "type": "topics", "clusters_from": "groups"},
+    ],
+})
+if job.isError:
+    raise RuntimeError("MCP analysis submission failed")
+```
+
+Poll `get_job` and read result summaries/pages as shown in the [MCP guide](mcp.md). For large data, use [staged JSONL uploads](mcp.md#connection-options). Registration accepts `complete_selection` or `retrieval_results`; the example maps local filters/samples to `retrieval_results`. Database source identity and local filter/sample details are not transferred through `register_records`. Alternatively, give the MCP server its own connection settings using `connect_database` below; it retrieves and preserves database provenance on the server. Client injection currently supports Qdrant and Weaviate; the configuration-based MCP adapters also support Pinecone, Milvus and pgvector.
+
 ## Installation
 
 Install the extras your server uses:

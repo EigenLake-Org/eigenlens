@@ -16,6 +16,50 @@ pip install 'vector-tools[server,qdrant] @ git+https://github.com/EigenLake-Org/
 
 This installs the `vector-ml` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
 
+## Use your existing Python database client
+
+Pass your application's initialized **QdrantClient** or **WeaviateClient v4** directly. `from_client` detects the SDK; reads start when you call `materialize()`. You keep control of credentials, connection settings, timeouts and closing the client.
+
+```python
+import vector_tools as vt
+from qdrant_client import QdrantClient
+
+client = QdrantClient(url="http://localhost:6333")
+try:
+    data = vt.from_client(
+        client, collection="banking77_minilm",
+        limits=vt.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
+                         max_working_bytes=6 * 1024**3, max_seconds=1800),
+    ).materialize()
+    results = vt.analyze(data, [
+        {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
+        {"id": "themes", "type": "topics", "clusters_from": "groups",
+         "parameters": {"ngram_max": 2}},
+    ])
+    print(results["groups"].summary())
+    print(results["themes"].summary())
+finally:
+    client.close()
+```
+
+For Weaviate, install the `weaviate` extra and pass its connected client:
+
+```python
+import weaviate
+import vector_tools as vt
+
+with weaviate.connect_to_local() as client:
+    data = vt.from_client(client, collection="Questions", text_field="content").materialize()
+    groups = vt.cluster(data)
+    themes = vt.topics(data, groups, ngram_max=2)
+```
+
+These examples read the entire collection across pages, or fail at configured limits. They use stored embeddings. To cluster search results, pass `query_vector` and `search_limit`; generate that query vector with the same model used for the collection. Set `vector_field` only when the collection has multiple dense vector fields. See [Python client options and MCP handoff](docs/databases.md#existing-python-sdk-clients).
+
+The BANKING77 example uses the demo's larger data, working-memory and time budgets for its full 13,069 records; your machine must have enough available memory for that analysis.
+
+Python analysis runs in your application's process. To submit work to the MCP job server, register the materialized records and call `run_analysis`. A live Python client stays in your application; MCP receives JSON records or connection settings.
+
 ## Connect MCP to a chat agent
 
 MCP exposes tools that an agent can call during a conversation. You connect the server once, then ask questions in plain language. The server runs the analysis in background jobs.

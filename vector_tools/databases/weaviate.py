@@ -6,8 +6,12 @@ from ..schemas import VTError
 
 
 class WeaviateAdapter(Adapter):
-    def __init__(self, spec):
+    def __init__(self, spec, *, client=None):
         super().__init__(spec)
+        self.owns_client = client is None
+        if client is not None:
+            self.client = client
+            return
         parsed = urlsplit(spec.get("url") or "")
         if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.path.strip("/"):
             raise VTError("Weaviate requires an HTTP(S) origin URL")
@@ -35,8 +39,13 @@ class WeaviateAdapter(Adapter):
 
     def scan(self, collection, batch_size):
         field = self.describe(collection)["vector_field"]
-        for point in self.client.collections.use(collection).iterator(include_vector=True, cache_size=batch_size):
-            yield self.mapped(point, collection, field)
+        stream = iter(self.client.collections.use(collection).iterator(include_vector=True, cache_size=batch_size))
+        try:
+            for point in stream:
+                yield self.mapped(point, collection, field)
+        finally:
+            if hasattr(stream, "close"):
+                stream.close()
 
     def search(self, collection, vector, limit):
         info = self.describe(collection)
@@ -47,4 +56,5 @@ class WeaviateAdapter(Adapter):
             yield self.mapped(point, collection, field)
 
     def close(self):
-        self.client.close()
+        if self.owns_client:
+            self.client.close()

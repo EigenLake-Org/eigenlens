@@ -4,11 +4,15 @@ from ..schemas import VTError
 
 
 class QdrantAdapter(Adapter):
-    def __init__(self, spec):
+    def __init__(self, spec, *, client=None):
         super().__init__(spec)
-        if not spec.get("url"):
+        self.owns_client = client is None
+        if client is not None:
+            self.client = client
+        elif not spec.get("url"):
             raise VTError("Qdrant requires url")
-        self.client = QdrantClient(url=spec["url"], api_key=spec.get("api_key"), timeout=self.options.timeout)
+        else:
+            self.client = QdrantClient(url=spec["url"], api_key=spec.get("api_key"), timeout=self.options.timeout)
 
     def list_collections(self):
         return sorted(item.name for item in self.client.get_collections().collections)
@@ -50,4 +54,5 @@ class QdrantAdapter(Adapter):
             yield record(point.id, stored, point.payload, opts.text_field)
 
     def close(self):
-        self.client.close()
+        if self.owns_client:
+            self.client.close()
