@@ -73,6 +73,21 @@ services:
     mem_limit: 4g
     cpus: 2
     restart: unless-stopped
+  chat-worker:
+    build:
+      context: .
+      target: server
+    image: vector-ml-chat-worker
+    profiles: ["chat-worker"]
+    command: ["vector-ml", "--transport", "http", "--host", "0.0.0.0", "--config", "/app/config/chat-worker.json"]
+    ports: ["127.0.0.1:8020:8000"]
+    environment:
+      VECTOR_ML_MCP_TOKEN: ${VECTOR_CHAT_WORKER_TOKEN:-}
+    volumes: ["chat-worker-data:/data"]
+    init: true
+    mem_limit: 8g
+    cpus: 2
+    restart: unless-stopped
   food-loader:
     build:
       context: .
@@ -107,3 +122,4 @@ volumes:
   food-cache:
   query-job-data:
   query-models:
+  chat-worker-data:

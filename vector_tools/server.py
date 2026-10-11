@@ -6,6 +6,9 @@ import contextvars
 import hmac
 import logging
 import os
+from pathlib import Path
+import re
+import tempfile
 from typing import Literal
 from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
@@ -22,8 +25,8 @@ def build_server(service, host="127.0.0.1", port=8000):
                      max_request_body_size=2 * 1024 * 1024,
                      instructions="Inspect capabilities and source first. Create a dataset, run async analysis, poll job status, then inspect summaries and examples. Counts are vector records, not deduplicated tickets. Themes are evidence for investigation, not confirmed causes.",
                      transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True,
-                        allowed_hosts=["127.0.0.1:*", "localhost:*", "service:*", "testserver"],
-                        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://service:*"]))
+                        allowed_hosts=["127.0.0.1:*", "localhost:*", "service:*", "chat-worker:*", "testserver"],
+                        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://service:*", "http://chat-worker:*"]))
     server._mcp_server.version = "0.1.0"
     async def invoke(method, *args):
         try:
@@ -76,6 +79,44 @@ def build_server(service, host="127.0.0.1", port=8000):
     @server.custom_route("/health", methods=["GET"])
     async def health(request):
         return JSONResponse({"status": "ok", "server_version": "0.1.0", "supervisor_alive": service.supervisor.thread.is_alive()})
+    @server.custom_route("/ingress/{artifact_name}", methods=["POST", "DELETE"])
+    async def ingress(request):
+        """Stream bounded JSONL into the authenticated caller's staging directory."""
+        name=request.path_params['artifact_name']
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}\.jsonl',name):
+            return JSONResponse({'error':'Expected a simple .jsonl filename'},status_code=400)
+        folder=service.config.root/'ingress'/principal.get()
+        folder.mkdir(parents=True,exist_ok=True)
+        path=folder/name
+        if request.method=='DELETE':
+            path.unlink(missing_ok=True)
+            return JSONResponse({'deleted':True})
+        if request.headers.get('content-type','').split(';')[0]!='application/x-ndjson':
+            return JSONResponse({'error':'Use application/x-ndjson'},status_code=415)
+        cap=service.config.limits.max_bytes
+        try:
+            length=int(request.headers.get('content-length','0'))
+        except ValueError:
+            return JSONResponse({'error':'Invalid Content-Length'},status_code=400)
+        if length<0 or length>cap:
+            return JSONResponse({'error':'Upload exceeds max_bytes'},status_code=413)
+        temp_path=None
+        try:
+            with tempfile.NamedTemporaryFile(dir=folder,prefix='.upload-',delete=False) as target:
+                temp_path=Path(target.name)
+                size=0
+                async for chunk in request.stream():
+                    size+=len(chunk)
+                    if size>cap:
+                        return JSONResponse({'error':'Upload exceeds max_bytes'},status_code=413)
+                    await asyncio.to_thread(target.write,chunk)
+            # Publish only a complete upload; never replace another staged input.
+            try:os.link(temp_path,path)
+            except FileExistsError:
+                return JSONResponse({'error':'Artifact already exists; choose a new filename'},status_code=409)
+            return JSONResponse({'artifact_name':name,'bytes':size},status_code=201)
+        finally:
+            if temp_path is not None:temp_path.unlink(missing_ok=True)
     return server
 
 class AccessMiddleware:
@@ -97,6 +138,13 @@ class AccessMiddleware:
             owner = "local"
         if owner is None:
             return await JSONResponse({"error": "Unauthorized"}, status_code=401)(scope, receive, send)
+        if scope.get('path','').startswith('/ingress/'):
+            token=principal.set(owner)
+            try:
+                # The upload route enforces max_bytes while streaming, rather than buffering vectors.
+                await self.app(scope,receive,send)
+            finally:principal.reset(token)
+            return
         body = bytearray()
         while True:
             event = await receive()

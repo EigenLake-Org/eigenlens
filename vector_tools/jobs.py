@@ -3,6 +3,7 @@ import fcntl
 import multiprocessing as mp
 import os
 import signal
+import socket
 import threading
 import time
 import traceback
@@ -48,6 +49,8 @@ def worker(root, config_path, job_id, owner):
         refs = {}
         for op_id, result in results.items():
             result.summary_data["materialized_artifact_id"] = stage_id
+            result.summary_data["execution_host"] = socket.gethostname()
+            result.summary_data["worker_pid"] = os.getpid()
             store.put(owner, "res", result.model_dump(), result.result_id)
             refs[op_id] = result.result_id
         store.update_job(job_id, "succeeded", refs)

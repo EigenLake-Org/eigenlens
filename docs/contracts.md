@@ -96,3 +96,11 @@ Completed result artifacts are immutable and survive restart. Interrupted work i
 - [Weaviate iteration](https://docs.weaviate.io/weaviate/manage-objects/read-all-objects)
 - [pgvector](https://github.com/pgvector/pgvector)
 - [Pinecone ID listing](https://docs.pinecone.io/guides/manage-data/list-record-ids)
+
+### HTTP JSONL upload
+
+Authenticated clients can stream `POST /ingress/<filename>.jsonl` with `Content-Type: application/x-ndjson`, using the same bearer token as MCP. The filename must match `[A-Za-z0-9_-]{1,128}.jsonl`. Uploads are limited by `limits.max_bytes` while streaming; this endpoint does not use the smaller 2 MiB MCP RPC limit. It publishes the file atomically only after the complete stream arrives and never replaces an existing artifact. Responses are 201 on success, 400 for invalid names/lengths, 401 for unauthorized requests, 409 for an existing file, 413 for excessive bytes, and 415 for the wrong content type.
+
+Then call `register_records(artifact_name="filename.jsonl", selection_scope="retrieval_results")` or `complete_selection`, as appropriate. Registration validates the JSONL records and copies them into a durable dataset artifact. Finally use authenticated `DELETE /ingress/<filename>.jsonl` to remove the staging file; deletion does not remove the registered dataset. Both routes resolve only inside the authenticated caller's ingress directory. An interrupted upload removes its temporary file. Abandoned completed uploads and registered artifacts require operator cleanup; retention quotas across files are not implemented.
+
+Worker result summaries include `execution_host` and `worker_pid` for diagnosing where computation ran. Container workers still report the `local` compute backend because the algorithms run locally within that container.

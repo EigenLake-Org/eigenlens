@@ -1,0 +1,15 @@
+{
+  "data_dir": "/data",
+  "limits": {
+    "max_rows": 20000,
+    "max_bytes": 536870912,
+    "max_working_bytes": 8589934592,
+    "max_seconds": 1800,
+    "max_jobs": 1,
+    "max_pending_jobs": 16
+  },
+  "callers": {
+    "local": {"sources": [], "token_env": "VECTOR_ML_MCP_TOKEN"}
+  },
+  "sources": {}
+}

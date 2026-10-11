@@ -121,3 +121,7 @@ Indexes the full corpus with MiniLM, queries Qdrant, and clusters the top 2,000 
 ## Run clustering on a job server
 
 Start `python -m examples.query_job_server` with `VECTOR_QUERY_TOKEN` set. Clients submit to `POST /jobs`, poll the job ID, and download the plot and results. The agent client also uses this HTTP server. See [job server setup, API and deployment](docs/query-job-server.md).
+
+## Separate Docker worker for Vector Chat
+
+The `chat-worker` Compose profile runs authenticated core HTTP MCP on `http://127.0.0.1:8020/mcp`, with its own persistent volume and spawned analysis processes. PCA, DBSCAN and c-TF-IDF execute there; the chat sends all Qdrant matches and retrieves results through MCP. See [worker setup and upload contract](docs/chat-worker.md). The companion Vector Chat repository includes a one-command setup script that generates the bearer token and starts the worker.
