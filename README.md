@@ -1,9 +1,9 @@
 # Vector Tools
 
-Cluster existing embeddings and label their topics through Python or an MCP job server. [Vector Chat](https://github.com/EigenLake-Org/vector-chat) adds Qdrant search, chat threads and interactive plots.
+Cluster existing embeddings and model their topics through Python or an MCP job server.
 
-- **Clustering:** PCA + DBSCAN search, or MiniBatch K-means.
-- **Topics:** c-TF-IDF keywords and phrases, with representative examples.
+- **Clustering:** PCA + DBSCAN parameter search.
+- **Topics:** [BERTopic](https://maartengr.github.io/BERTopic/getting_started/manual/manual.html) keywords and phrases from the discovered clusters.
 - **Jobs:** queueing, cancellation and saved results. Default: **1 worker**; configurable up to 16.
 
 ## Try the BANKING77 demo
@@ -16,19 +16,12 @@ source .venv/bin/activate
 pip install -c requirements-tested.txt -e '.[server,banking]'
 docker compose --profile qdrant up -d --wait qdrant
 python -m examples.banking77 setup
+python -m examples.banking77 analyze
 ```
 
 The example keeps a local embedding cache and records dataset/model revisions and a checksum. Repeating setup reuses that cache and upserts the same point IDs. It rejects a collection containing a different dataset snapshot. Run `python -m examples.banking77 prepare` to rebuild the cache. Dataset files and vectors are not committed to Git.
 
-To explore the data, keep `vector-chat` next to this checkout:
-
-```bash
-cd ../vector-chat
-./scripts/run-docker-chat.sh             # one worker
-# ./scripts/run-docker-chat.sh --workers 3
-```
-
-Open [Vector Chat](http://127.0.0.1:7860), create a chat with `http://localhost:6333`, and select **banking77_minilm**. Try `show clusters in ATM`, `show clusters in credit cards`, or `show clusters` for the full collection.
+Analysis saves assignments, topic terms and an interactive 3D plot in `demo-output/banking77/`. It processes the complete cached corpus. Clustering uses existing vectors; BERTopic uses those assignments to model topics without downloading an embedding model. `-1` remains unassigned data.
 
 ## Use Python or MCP
 
@@ -43,11 +36,11 @@ results = vt.analyze(data, [
 ])
 ```
 
-Run `python examples/sdk_demo.py` for a small synthetic example, or `python examples/mcp_client.py` for the native MCP workflow. Agents register records, submit a plan, poll its job, and read summaries, examples and result pages. Vector Chat handles database retrieval; the core worker handles analysis.
+Run `python examples/sdk_demo.py` for a small synthetic example, or `python examples/mcp_client.py` for the native MCP workflow. Agents register records, submit a plan, poll its job, and read summaries, examples and result pages. Callers retrieve their own records; the worker runs PCA/DBSCAN and BERTopic.
 
 ## Documentation
 
-- [Docker worker setup and concurrency](docs/chat-worker.md)
+- [Docker worker setup and concurrency](docs/worker.md)
 - [MCP tools, uploads and analysis contracts](docs/contracts.md)
 - [Architecture](docs/architecture.md)
 

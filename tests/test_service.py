@@ -22,12 +22,12 @@ def service(tmp_path, monkeypatch):
 
 def test_durable_jobs_idempotency_access_pages(service):
     ds = service.register_records("local", records=[r.model_dump() for r in tickets()[:30]])
-    ops = [{"id":"c", "type":"cluster", "parameters":{"n_clusters":3}}]
+    ops = [{"id":"c", "type":"cluster", "parameters":{"eps_values":[.3,.5]}}]
     job = service.run_analysis("local", ds["dataset_id"], ops, idempotency_key="test")
     duplicate = service.run_analysis("local", ds["dataset_id"], ops, idempotency_key="test")
     assert duplicate["job_id"] == job["job_id"]
     with pytest.raises(VTError, match="different"):
-        service.run_analysis("local", ds["dataset_id"], [{"id":"c","type":"cluster", "parameters":{"n_clusters":2}}], idempotency_key="test")
+        service.run_analysis("local", ds["dataset_id"], [{"id":"c","type":"cluster", "parameters":{"eps_values":[.4]}}], idempotency_key="test")
     j = wait(service, job["job_id"])
     assert j["status"] == "succeeded", j
     ref = j["results"]["c"]
@@ -80,7 +80,7 @@ def test_registration_scope_and_persistent_restart(tmp_path, monkeypatch):
     service = Service()
     ds = service.register_records("local", records=[r.model_dump() for r in tickets()])
     assert ds["scope"] == "retrieval_results"
-    job = service.run_analysis("local", ds["dataset_id"], [{"id":"s", "type":"cluster", "parameters":{"n_clusters":3}}])
+    job = service.run_analysis("local", ds["dataset_id"], [{"id":"s", "type":"cluster", "parameters":{"eps_values":[.3,.5]}}])
     done = wait(service, job["job_id"])
     assert done["status"] == "succeeded"
     ref = done["results"]["s"]

@@ -21,13 +21,12 @@ Operation IDs must be unique. A plan contains 1–16 operations; topic operation
 
 | Operation | Algorithm | Parameters |
 | --- | --- | --- |
-| `cluster` | `minibatch_kmeans` (default) | `n_clusters`, `random_state`, `batch_size`, `n_init`, `max_iter`, `normalize` |
-| `cluster` | `dbscan_search` | `pca_components`, `eps_values`, `min_samples_values`, `max_noise_ratio`, `silhouette_sample_size`, `random_state`, `label_field` |
-| `topics` | `ctfidf` | `top_n`, `stop_words`, `ngram_max` |
+| `cluster` | `dbscan_search` (default) | `pca_components`, `eps_values`, `min_samples_values`, `max_noise_ratio`, `silhouette_sample_size`, `random_state`, `label_field` |
+| `topics` | `bertopic` | `top_n`, `stop_words`, `ngram_max` |
 
 DBSCAN L2-normalizes embeddings before PCA and normalizes the reduced coordinates afterward. Defaults search eps 0.30–0.80 in 0.05 increments and min_samples 5, 10, 15, with at most 64 grid combinations. The winning candidate has at least two clusters, no more than `max_clusters`, noise strictly below the threshold (default 70%), and the highest sampled silhouette among non-noise points. Ties use the first grid entry. No valid candidate returns diagnostics with all rows unassigned (`-1`), not a fabricated clustering. Optional metadata labels are used only for post-hoc evaluation.
 
-The 3D PCA projection is separate from the clustering space and preserves all record IDs. c-TF-IDF weights terms within each cluster; phrases never cross record boundaries. `ngram_max` supports 1–3. Noise may have terms, but does not represent a discovered topic. Terms and clusters are exploratory evidence.
+The 3D PCA projection is separate from the clustering space and preserves all record IDs. BERTopic models each DBSCAN cluster using its ClassTfidfTransformer and the supplied embeddings. Its manual topic workflow skips UMAP and HDBSCAN. Internal topic renumbering is mapped back to the original cluster IDs, including noise `-1`. The vectorizer extracts phrases within source records; phrases never cross record boundaries. `ngram_max` supports 1–3. Noise may have terms, but does not represent a discovered topic. Terms and clusters are exploratory evidence.
 
 ## MCP tools and results
 

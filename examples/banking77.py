@@ -1,4 +1,4 @@
-"""Prepare BANKING77 MiniLM vectors and index them for Vector Chat."""
+"""Prepare, index and cluster BANKING77 using MiniLM embeddings."""
 import argparse
 from contextlib import closing
 import hashlib
@@ -105,14 +105,47 @@ def index_records(client, collection, records, manifest):
     return count
 
 
+def analyze_records(records, manifest, config, output):
+    """Run the full cached corpus through DBSCAN and BERTopic; export JSON and a 3D map."""
+    import html
+    import plotly.graph_objects as go
+    data = vt.from_records(records, name="banking77", limits=config.limits).materialize()
+    results = vt.analyze(data, [
+        {"id":"groups", "type":"cluster", "parameters":{"label_field":"label_text"}},
+        {"id":"themes", "type":"topics", "clusters_from":"groups", "parameters":{"ngram_max":2}},
+    ])
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "results.json").write_text(json.dumps({key:result.model_dump() for key,result in results.items()}, indent=2))
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    lookup = {record.id:record for record in data.records}
+    figure = go.Figure()
+    for group in results['themes'].rows:
+        cid = group['cluster_id']
+        rows = [row for row in results['groups'].rows if row['cluster_id'] == cid]
+        label = 'Unassigned' if cid == -1 else ', '.join(term['term'] for term in group['terms'][:2]) or f'Cluster {cid}'
+        figure.add_trace(go.Scatter3d(x=[r['pca_3d'][0] for r in rows],
+                         y=[r['pca_3d'][1] for r in rows], z=[r['pca_3d'][2] for r in rows],
+                         mode='markers', name=label,
+                         text=[html.escape(lookup[r['id']].text or '') for r in rows],
+                         hovertemplate='%{text}<extra></extra>',
+                         marker={'size':2 if cid == -1 else 3, 'opacity':.2 if cid == -1 else .8}))
+    figure.update_layout(title='BANKING77 clusters and BERTopic labels', height=850,
+                         margin={'l':0, 'r':0, 'b':0, 't':45}, showlegend=False)
+    figure.write_html(output / 'clusters.html', include_plotlyjs=True, config={'responsive':True})
+    print(f"Analyzed all {len(records):,} records. Reports: {output.resolve()}")
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["prepare", "index", "setup"])
+    parser.add_argument("command", choices=["prepare", "index", "setup", "analyze"])
     parser.add_argument("--dataset-revision", default="main")
     parser.add_argument("--model-revision", default="main")
     parser.add_argument("--qdrant-url", default="http://localhost:6333")
     parser.add_argument("--collection", default="banking77_minilm")
     parser.add_argument("--config", default="config/banking77.json")
+    parser.add_argument("--output", default="demo-output/banking77")
     args = parser.parse_args()
     args.limit = 0  # Always keep the complete train + test corpus.
     config = Config(args.config)
@@ -124,9 +157,12 @@ def main():
     records, manifest = read_records(config)
     if manifest["selection"] != "train_plus_test":
         raise SystemExit("Cached data is a sample; run prepare to build the full corpus.")
+    if args.command == "analyze":
+        analyze_records(records, manifest, config, args.output)
+        return
     with closing(QdrantClient(url=args.qdrant_url, api_key=os.getenv("QDRANT_API_KEY"), timeout=120)) as client:
         index_records(client, args.collection, records, manifest)
-    print(f"In Vector Chat, connect to {args.qdrant_url} and choose {args.collection}.")
+    print(f"Collection ready: {args.collection}. Run analyze for clustering and topic reports.")
 
 
 if __name__ == "__main__":

@@ -47,12 +47,7 @@ class Limits(Contract):
     max_seconds: int = Field(default=300, ge=1)
 
 class Parameters(Contract):
-    n_clusters: int | None = Field(default=None, ge=1)
     random_state: int | None = None
-    batch_size: int | None = Field(default=None, ge=1, le=10000)
-    n_init: int | Literal["auto"] | None = None
-    max_iter: int | None = Field(default=None, ge=1, le=10000)
-    normalize: bool | None = None
     top_n: int | None = Field(default=None, ge=1, le=100)
     ngram_max: int | None = Field(default=None, ge=1, le=3)
     stop_words: Literal["english"] | None = None
@@ -83,7 +78,7 @@ class Operation(Contract):
     algorithm: str | None = None
     parameters: Parameters = Field(default_factory=Parameters)
     clusters_from: str | None = None
-    representation: Literal["ctfidf"] | None = None
+    representation: Literal["bertopic"] | None = None
 
 class Execution(Contract):
     mode: Literal["async", "sync"] = "async"

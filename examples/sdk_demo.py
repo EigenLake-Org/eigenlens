@@ -7,7 +7,7 @@ from vector_tools.demo import tickets
 def main():
     data = vt.from_records(tickets(), name="synthetic-support-tickets").materialize()
     results = vt.analyze(data, [
-        {"id": "groups", "type": "cluster", "parameters": {"n_clusters": 4}},
+        {"id": "groups", "type": "cluster", "algorithm":"dbscan_search"},
         {"id": "themes", "type": "topics", "clusters_from": "groups", "parameters": {"ngram_max": 2}},
     ])
     print(json.dumps({name: {"summary": result.summary(), "examples": result.examples()}

@@ -51,10 +51,10 @@ def test_invalid_grid(params):
 
 
 def test_algorithm_parameter_isolation_and_memory():
-    with pytest.raises(VTError,match="Unsupported"):
+    with pytest.raises(ValueError,match="n_clusters"):
         plan([operation(n_clusters=2)])
     with pytest.raises(VTError,match="Unsupported"):
-        plan([{"id":"c","type":"cluster","parameters":{"eps_values":[.3]}}])
+        plan([{"id":"c","type":"cluster","parameters":{"top_n":3}}])
     with pytest.raises(VTError,match="memory"):
         vt.analyze(fixture_data(limits=Limits(max_working_bytes=10000)),[operation()])
 

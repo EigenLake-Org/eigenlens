@@ -45,3 +45,16 @@ def test_cache_requires_matching_checksum(tmp_path):
     path.write_text(path.read_text()+'\n')
     with pytest.raises(ValueError, match='checksum'):
         read_records(config)
+
+
+def test_standalone_analysis_exports_every_record_and_real_bertopic(tmp_path):
+    from examples.banking77 import analyze_records
+    data = fixture_data()
+    result = analyze_records(data.records, manifest(), SimpleNamespace(limits=data.limits), tmp_path)
+    assert result['groups'].processed == 33
+    assert result['themes'].versions['bertopic']
+    assert len(result['groups'].rows) == 33
+    saved = json.loads((tmp_path/'results.json').read_text())
+    assert len(saved['groups']['rows']) == 33
+    assert saved['themes']['effective_parameters']['representation'] == 'bertopic'
+    assert (tmp_path/'clusters.html').stat().st_size > 10000

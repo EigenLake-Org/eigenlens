@@ -17,7 +17,9 @@ class LocalBackend:
         for op in ordered:
             kwargs = {"op_id": op.id, "run_id": run_id, **op.parameters.supplied()}
             if op.type == "cluster":
-                kwargs["algorithm"] = op.algorithm or "minibatch_kmeans"
+                kwargs["algorithm"] = op.algorithm or "dbscan_search"
+            if op.representation:
+                kwargs["representation"] = op.representation
             if op.clusters_from:
                 kwargs["clusters"] = results[op.clusters_from]
             results[op.id] = getattr(operators, op.type)(data, **kwargs)

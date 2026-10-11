@@ -1,15 +1,11 @@
 """Portable operation validation and dependency ordering."""
 from .schemas import Operation, Limits, VTError
 
-REGISTRY = {
-    "cluster": {"algorithm": "minibatch_kmeans", "fields": {"vector"}, "params": {"n_clusters", "random_state", "batch_size", "n_init", "max_iter", "normalize"}},
-    "topics": {"algorithm": "ctfidf", "fields": {"text"}, "params": {"top_n", "stop_words", "ngram_max"}},
-}
-
 DBSCAN_PARAMS = {"pca_components", "eps_values", "min_samples_values", "max_noise_ratio", "silhouette_sample_size", "random_state", "label_field"}
-REGISTRY["cluster"]["algorithms"] = {
-    "minibatch_kmeans": REGISTRY["cluster"]["params"],
-    "dbscan_search": DBSCAN_PARAMS,
+REGISTRY = {
+    "cluster": {"algorithm":"dbscan_search", "fields":{"vector"}, "params":DBSCAN_PARAMS,
+                "algorithms":{"dbscan_search":DBSCAN_PARAMS}},
+    "topics": {"algorithm":"bertopic", "fields":{"vector", "text"}, "params":{"top_n", "stop_words", "ngram_max"}},
 }
 
 def plan(operations, backend="auto", limits=None):
@@ -40,8 +36,6 @@ def plan(operations, backend="auto", limits=None):
                 raise VTError("clusters_from must reference a cluster operation in this plan")
         if o.representation and o.type != "topics":
             raise VTError("representation applies only to topics")
-        if (o.parameters.n_clusters or 0) > limits.max_clusters:
-            raise VTError("n_clusters exceeds configured max_clusters")
     ordered, pending = [], list(ops)
     while pending:
         ready = [o for o in pending if not o.clusters_from or o.clusters_from in {v.id for v in ordered}]

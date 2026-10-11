@@ -2,12 +2,12 @@
 
 ```mermaid
 flowchart LR
-    Q[Qdrant] --> C[Vector Chat: query and retrieval]
+    Q[Vector database] --> C[Caller: query and retrieval]
     C --> R[MCP: register records]
     R --> S[Durable job queue]
     S --> W[Isolated worker process]
-    W --> A[PCA/DBSCAN or K-means]
-    A --> T[c-TF-IDF topic labels]
+    W --> A[PCA/DBSCAN]
+    A --> T[BERTopic topic modeling]
     T --> P[Saved results and pages]
     P --> C
 ```
@@ -16,8 +16,8 @@ The caller owns database connections, query embeddings, and record selection. Th
 
 `Service` validates plans before queueing. One `Supervisor` holds an exclusive filesystem lock on its data directory and starts up to `max_jobs` spawned processes. Each process materializes records once, runs operations in dependency order, and saves portable JSON results. PCA/DBSCAN and topic extraction execute in these job processes, inside the worker container when deployed with Compose. The SDK runs the same algorithms synchronously in the calling process.
 
-The HTTP or stdio MCP process remains available during analysis. HTTP uploads stream into a principal-specific staging directory; registration validates and copies them into durable dataset artifacts. Application code handles polling and cleanup of staged uploads. Results expose record IDs, assignments, topic terms, examples, scope, effective parameters and provenance. DBSCAN pages also contain 3D coordinates; Vector Chat builds the plot.
+The HTTP or stdio MCP process remains available during analysis. HTTP uploads stream into a principal-specific staging directory; registration validates and copies them into durable dataset artifacts. Application code handles polling and cleanup of staged uploads. Results expose record IDs, assignments, topic terms, examples, scope, effective parameters and provenance. DBSCAN pages also contain 3D coordinates; the caller builds the plot.
 
 SQLite holds job state and artifact ownership. Files hold dataset, materialization and result content. Successful jobs remain readable after restart. Interrupted jobs are marked failed; cancellation terminates the selected process. Changing worker count requires restart. Automatic retention is not implemented.
 
-The package requires NumPy, SciPy, scikit-learn, Pydantic and threadpoolctl. MCP and Uvicorn are optional server dependencies. No database driver, embedding model or model API is needed for core analysis.
+The package requires NumPy, SciPy, scikit-learn, Pydantic and threadpoolctl. BERTopic is the topic modeling dependency and includes its own supporting libraries. MCP and Uvicorn are optional server dependencies. Analysis uses caller-supplied embeddings and DBSCAN assignments; it does not download or run an embedding model.

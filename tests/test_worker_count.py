@@ -41,7 +41,7 @@ def test_two_real_jobs_run_and_third_waits(tmp_path,monkeypatch):
     service.supervisor.worker_target=paused_cluster_worker
     try:
         ds=service.register_records('local',records=[r.model_dump() for r in tickets()])
-        ops=[{'id':'groups','type':'cluster','parameters':{'n_clusters':3}},
+        ops=[{'id':'groups','type':'cluster','algorithm':'dbscan_search'},
              {'id':'themes','type':'topics','clusters_from':'groups'}]
         jobs=[service.run_analysis('local',ds['dataset_id'],ops)['job_id'] for _ in range(3)]
         for job_id in jobs[:2]:wait_started(tmp_path, job_id)
@@ -52,7 +52,7 @@ def test_two_real_jobs_run_and_third_waits(tmp_path,monkeypatch):
         assert service.cancel_job('local',jobs[0])['status']=='cancelled'
         assert service.get_job('local',jobs[1])['status']=='running'
         (tmp_path/'release').touch()
-        deadline=time.monotonic()+30
+        deadline=time.monotonic()+90
         for job_id in jobs[1:]:
             while (job:=service.get_job('local',job_id))['status'] not in {'succeeded','failed','cancelled'}:
                 assert time.monotonic()<deadline

@@ -1,15 +1,10 @@
 """Real local algorithms returning portable result contracts."""
 from __future__ import annotations
-from collections import Counter
 from datetime import datetime, timezone
 from importlib.metadata import version
-import math
 import uuid
 import numpy as np
-from scipy.sparse import csr_matrix
-from sklearn.cluster import MiniBatchKMeans
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.preprocessing import normalize as unit_normalize
 from threadpoolctl import threadpool_limits
 from .schemas import Result, VTError
 
@@ -29,46 +24,19 @@ def base(data, kind, op_id, params, summary, rows, examples, run_id=None, skippe
                                 "source_read_count": data.read_count, "selection": data.selection, **summary},
                   rows=rows, example_rows=examples)
 
-def matrix(data, normalize=False):
+def matrix(data):
     x = data.vectors()
-    # Conservative matrix-copy reserve. Specific operator allocations checked below.
     if x.nbytes * 8 > data.limits.max_working_bytes:
         raise VTError("Estimated working memory exceeds max_working_bytes")
-    return unit_normalize(x) if normalize else x
+    return x
 
-def cluster(data, estimator=None, op_id="clusters", run_id=None, algorithm="minibatch_kmeans", **parameters):
-    if algorithm == "dbscan_search":
-        if estimator is not None:
-            raise VTError("dbscan_search does not accept an estimator")
-        from .density import dbscan_search
-        return dbscan_search(data, op_id=op_id, run_id=run_id, **parameters)
-    if algorithm != "minibatch_kmeans":
-        raise VTError("Unknown clustering algorithm")
-    params = dict(parameters)
-    normal = params.pop("normalize", False)
-    x = matrix(data, normal)
-    if estimator is not None and type(estimator) is not MiniBatchKMeans:
-        raise VTError("Supported estimator protocol: exact sklearn MiniBatchKMeans; custom estimators require a registered implementation")
-    if estimator is None:
-        params = {"n_clusters": min(data.limits.max_clusters, max(1, min(8, int(math.sqrt(len(x)))))), "random_state": 42, "n_init": 3, **params}
-        estimator = MiniBatchKMeans(**params)
-    n = estimator.n_clusters
-    if not 1 <= n <= min(len(x), data.limits.max_clusters):
-        raise VTError("n_clusters must be <= usable records and max_clusters")
-    if x.nbytes * 8 + len(x) * n * 8 > data.limits.max_working_bytes:
-        raise VTError("Cluster distance matrix exceeds working memory budget")
-    with threadpool_limits(limits=1):
-        labels = estimator.fit_predict(x)
-        distances = estimator.transform(x)
-    rows = [{"id": r.id, "cluster_id": int(label)} for r, label in zip(data.records, labels)]
-    examples = []
-    for cid in range(n):
-        indices = np.flatnonzero(labels == cid)
-        chosen = sorted(indices, key=lambda i: (distances[i, cid], data.records[i].id))[:5]
-        examples.extend(example(data.records[i], cluster_id=cid, distance=float(distances[i, cid])) for i in chosen)
-    effective = {**estimator.get_params(), "normalize": normal, "distance_assumption": "Euclidean on L2-normalized embeddings" if normal else "Euclidean on supplied embeddings"}
-    return base(data, "cluster", op_id, effective,
-                {"cluster_sizes": dict(sorted(Counter(map(str, labels)).items())), "centroids": estimator.cluster_centers_.tolist(), "inertia": float(estimator.inertia_)}, rows, examples, run_id)
+def cluster(data, op_id="clusters", run_id=None, algorithm="dbscan_search", **parameters):
+    if algorithm != "dbscan_search":
+        raise VTError("Supported clustering algorithm: dbscan_search")
+    from .registry import plan
+    plan([{"id":op_id, "type":"cluster", "algorithm":algorithm, "parameters":parameters}], limits=data.limits)
+    from .density import dbscan_search
+    return dbscan_search(data, op_id=op_id, run_id=run_id, **parameters)
 
 def validate_clusters(data, clusters):
     if clusters.operation != "cluster" or clusters.dataset_fingerprint != data.fingerprint:
@@ -78,45 +46,86 @@ def validate_clusters(data, clusters):
         raise VTError("Cluster assignment IDs do not match this dataset")
     return mapping
 
-def topics(data, clusters, representation="ctfidf", op_id="topics", run_id=None, top_n=10, stop_words="english", ngram_max=1):
-    if representation != "ctfidf":
-        raise VTError("Supported topic representation: ctfidf")
+class RecordVectorizer(CountVectorizer):
+    """Keep BERTopic's group documents, but extract phrases within each source record."""
+    def __init__(self, boundary, stop_words="english", ngram_range=(1, 1), max_features=20000):
+        self.boundary = boundary
+        super().__init__(stop_words=stop_words, ngram_range=ngram_range, max_features=max_features)
+
+    def build_analyzer(self):
+        analyze = super().build_analyzer()
+        def per_record(document):
+            return [term for chunk in document.split(self.boundary) for term in analyze(chunk)]
+        return per_record
+
+
+def topics(data, clusters, representation="bertopic", op_id="topics", run_id=None,
+           top_n=10, stop_words="english", ngram_max=1):
+    if representation != "bertopic":
+        raise VTError("Supported topic representation: bertopic")
     if not 1 <= top_n <= 100:
         raise VTError("top_n must be 1..100")
     if type(ngram_max) is not int or not 1 <= ngram_max <= 3:
         raise VTError("ngram_max must be 1..3")
     mapping = validate_clusters(data, clusters)
     ids = sorted(set(mapping.values()))
-    positions = {cid: i for i, cid in enumerate(ids)}
     empty = sum(not (r.text or "").strip() for r in data.records)
+    from bertopic import BERTopic
+    from bertopic.backend import BaseEmbedder
+    from bertopic.cluster import BaseCluster
+    from bertopic.dimensionality import BaseDimensionalityReduction
+    from bertopic.vectorizers import ClassTfidfTransformer
+    from scipy.sparse import diags
+
+    class ScalarSafeCtfidf(ClassTfidfTransformer):
+        def fit(self, X, multiplier=None):
+            if X.shape[1] != 1:
+                return super().fit(X, multiplier)
+            # BERTopic 0.17.4 squeezes a one-word vocabulary to a scalar, which
+            # scipy.diags rejects. Keep its weighting and transform, but retain 1D.
+            frequency = np.asarray(X.sum(axis=0)).reshape(-1)
+            average = int(X.sum(axis=1).mean())
+            idf = np.log1p(average / frequency)
+            if multiplier is not None:
+                idf *= multiplier
+            self._idf_diag = diags(idf, offsets=0, shape=(1, 1), format="csr")
+            return self
+    boundary = "vectorrecordboundary" + data.fingerprint
+    while any(boundary in (r.text or "") for r in data.records):
+        boundary += "x"
+    vectorizer = RecordVectorizer(boundary, stop_words=stop_words, ngram_range=(1, ngram_max))
+    # Manual BERTopic uses existing DBSCAN labels and supplied embeddings. No model download,
+    # UMAP fit, HDBSCAN fit or topic reassignment occurs in this operation.
+    model = BERTopic(embedding_model=BaseEmbedder(), umap_model=BaseDimensionalityReduction(),
+                     hdbscan_model=BaseCluster(), vectorizer_model=vectorizer,
+                     ctfidf_model=ScalarSafeCtfidf(), top_n_words=top_n,
+                     calculate_probabilities=False, verbose=False)
+    labels = [mapping[r.id] for r in data.records]
+    documents = [(r.text or "") + " " + boundary for r in data.records]
+    topic_ids = {}
     try:
-        v = CountVectorizer(stop_words=stop_words, max_features=20000, ngram_range=(1, ngram_max))
-        # Extract phrases per record so a phrase never crosses a document boundary.
-        document_counts = v.fit_transform([r.text or "" for r in data.records]).astype(float)
-        membership = csr_matrix((np.ones(len(data.records)),
-                                 ([positions[mapping[r.id]] for r in data.records], np.arange(len(data.records)))),
-                                shape=(len(ids), len(data.records)))
-        counts = membership @ document_counts
-        tf = unit_normalize(counts, norm="l1", axis=1)
-        average = float(np.asarray(counts.sum(axis=1)).mean())
-        idf = np.log1p(average / np.asarray(counts.sum(axis=0)).ravel())
-        weighted = tf.multiply(idf).tocsr()
-        names = v.get_feature_names_out()
-        rows = []
-        for i, cid in enumerate(ids):
-            row = weighted.getrow(i)
-            terms = sorted(zip(row.indices, row.data), key=lambda x: (-x[1], names[x[0]]))[:top_n]
-            rows.append({"cluster_id": cid, "terms": [{"term": str(names[j]), "weight": float(w)} for j, w in terms]})
+        with threadpool_limits(limits=1):
+            assigned, _ = model.fit_transform(documents, embeddings=matrix(data), y=labels)
+        # BERTopic renumbers topics by size; export against the original DBSCAN IDs.
+        for cid, topic_id in zip(labels, assigned):
+            if cid in topic_ids and topic_ids[cid] != int(topic_id):
+                raise VTError("BERTopic unexpectedly split an existing cluster")
+            topic_ids[cid] = int(topic_id)
+        rows = [{"cluster_id":cid, "terms":[{"term":str(term), "weight":float(weight)}
+                 for term, weight in (model.get_topic(topic_ids[cid]) or []) if term and weight > 0][:top_n]}
+                for cid in ids]
         vocabulary_status = "ok"
     except ValueError as exc:
         if "empty vocabulary" not in str(exc):
             raise
-        rows = [{"cluster_id": cid, "terms": []} for cid in ids]
+        rows = [{"cluster_id":cid, "terms":[]} for cid in ids]
         vocabulary_status = "empty_vocabulary"
-    result = base(data, "topics", op_id, {"representation": "ctfidf", "top_n": top_n, "stop_words": stop_words, "max_features": 20000,
-                                         "ngram_range": [1, ngram_max],
-                                         "weighting": "L1 class term frequency * log(1 + mean class token count / total term frequency)"},
-                  {"topics": rows, "vocabulary_status": vocabulary_status, "clustering_result_id": clusters.result_id}, rows,
-                  clusters.example_rows, run_id, {"missing_text": empty})
+    result = base(data, "topics", op_id, {"representation":"bertopic", "top_n":top_n,
+                  "stop_words":stop_words, "max_features":20000, "ngram_range":[1, ngram_max],
+                  "embedding_source":"caller supplied", "clustering_source":"existing DBSCAN assignments",
+                  "topic_id_map":{str(k):v for k,v in topic_ids.items()}, "weighting":"BERTopic ClassTfidfTransformer"},
+                  {"topics":rows, "vocabulary_status":vocabulary_status, "clustering_result_id":clusters.result_id},
+                  rows, clusters.example_rows, run_id, {"missing_text":empty})
+    result.versions["bertopic"] = version("bertopic")
     result.processed = len(data.records) - empty
     return result
