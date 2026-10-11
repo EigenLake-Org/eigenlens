@@ -78,7 +78,7 @@ def build_server(service, host="127.0.0.1", port=8000):
         return await invoke("get_result_page", result_id, cursor, limit)
     @server.custom_route("/health", methods=["GET"])
     async def health(request):
-        return JSONResponse({"status": "ok", "server_version": "0.1.0", "supervisor_alive": service.supervisor.thread.is_alive()})
+        return JSONResponse({"status": "ok", "server_version": "0.1.0", "supervisor_alive": service.supervisor.thread.is_alive(), "workers": service.config.limits.max_jobs})
     @server.custom_route("/ingress/{artifact_name}", methods=["POST", "DELETE"])
     async def ingress(request):
         """Stream bounded JSONL into the authenticated caller's staging directory."""

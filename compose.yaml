@@ -83,6 +83,8 @@ services:
     ports: ["127.0.0.1:8020:8000"]
     environment:
       VECTOR_ML_MCP_TOKEN: ${VECTOR_CHAT_WORKER_TOKEN:-}
+      VECTOR_ML_WORKERS: ${VECTOR_CHAT_WORKERS:-1}
+      VECTOR_ML_TOTAL_WORKING_BYTES: "8589934592"
     volumes: ["chat-worker-data:/data"]
     init: true
     mem_limit: 8g

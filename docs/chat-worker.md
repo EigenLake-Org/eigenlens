@@ -20,7 +20,7 @@ The token must match in both environments. Published ports bind to loopback. `/h
 
 ## Limits and lifecycle
 
-`config/chat-worker.json` allows 20,000 rows, 512 MiB of serialized input, an 8 GiB working-memory estimate, one concurrent analysis and a 30-minute timeout. Compose also enforces an 8 GiB container memory limit and two CPUs. The memory estimate is not an exact RSS guarantee. Increasing the row limit requires reviewing both algorithm estimates and container memory. Oversized selections fail; the chat never samples them.
+`config/chat-worker.json` allows 20,000 rows, 512 MiB of serialized input, an 8 GiB working-memory estimate, one concurrent analysis by default and a 30-minute timeout. Compose also enforces an 8 GiB container memory limit and two CPUs. The memory estimate is not an exact RSS guarantee. Increasing the row limit requires reviewing both algorithm estimates and container memory. Oversized selections fail; the chat never samples them.
 
 The `chat-worker-data` named volume contains jobs, registered datasets, intermediate data and results. Stop preserves it:
 
@@ -31,3 +31,11 @@ docker compose --profile chat-worker stop chat-worker
 Completed jobs survive restart. Jobs interrupted by service restart are marked failed. `cancel_job` terminates a pending/running worker and retains completed results if completion wins the race. Do not run two supervisors against the same data volume. Retention and automatic artifact cleanup are not implemented.
 
 For upload details see [the HTTP JSONL contract](contracts.md#http-jsonl-upload). Stream upload, registration and cleanup let a remote client use the worker without a shared filesystem. Analysis result summaries include the execution hostname and process ID so callers can verify container execution.
+
+## Choose concurrent workers
+
+From Vector Chat, run `./scripts/run-docker-chat.sh --workers N` (1–16, default 1). This applies `VECTOR_CHAT_WORKERS` to both the UI executor and this worker. For manual core Compose startup, set `VECTOR_CHAT_WORKERS=N` before starting `chat-worker`; also configure the chat with the same count.
+
+Compose passes `VECTOR_ML_WORKERS` into the core process and `VECTOR_ML_TOTAL_WORKING_BYTES=8589934592` as its shared working-memory estimate. Configuration divides the shared estimate by the selected slots and advertises the per-job limit through capabilities. Without these environment overrides, existing configuration-file limits remain unchanged. `/health` reports `workers` for checking the active slot count.
+
+Workers are spawned processes inside this single container. The supervisor runs at most N jobs together and queues additional jobs. Each analysis retains all records and runs as one job; the count does not parallelize individual PCA or DBSCAN operations. Per-job cancellation stops only the selected job. Container CPU and memory limits stay fixed. Restarting to change slot count interrupts active jobs, so allow them to finish first.

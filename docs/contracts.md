@@ -104,3 +104,7 @@ Authenticated clients can stream `POST /ingress/<filename>.jsonl` with `Content-
 Then call `register_records(artifact_name="filename.jsonl", selection_scope="retrieval_results")` or `complete_selection`, as appropriate. Registration validates the JSONL records and copies them into a durable dataset artifact. Finally use authenticated `DELETE /ingress/<filename>.jsonl` to remove the staging file; deletion does not remove the registered dataset. Both routes resolve only inside the authenticated caller's ingress directory. An interrupted upload removes its temporary file. Abandoned completed uploads and registered artifacts require operator cleanup; retention quotas across files are not implemented.
 
 Worker result summaries include `execution_host` and `worker_pid` for diagnosing where computation ran. Container workers still report the `local` compute backend because the algorithms run locally within that container.
+
+### Worker count overrides
+
+`VECTOR_ML_WORKERS` overrides `limits.max_jobs` at startup with an integer from 1–16. Without it, the configured limit is preserved. `VECTOR_ML_TOTAL_WORKING_BYTES` optionally defines a shared algorithm working-memory estimate; the service divides it by the effective number of slots to set each job's `max_working_bytes`. Validation rejects malformed values and insufficient per-job budgets. Worker subprocesses inherit the same configuration. `/health` includes the active `workers` count; `get_capabilities` reports the effective job and memory limits.
