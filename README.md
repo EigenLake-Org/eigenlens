@@ -37,7 +37,7 @@ Other local MCP hosts can use the same executable, arguments and environment. Fo
 
 ### Ask this in chat
 
-First supply vector records through your agent's retrieval integration or [stage a JSONL file](docs/mcp.md#connection-options). Then ask:
+First [connect your vector database through the agent's retrieval integration](#connect-your-vector-database) or [stage a JSONL file](docs/mcp.md#connection-options). Then ask:
 
 > Use vector-tools to cluster the dataset I supplied with DBSCAN search and model its topics with BERTopic using phrases up to two words. Wait for the job to finish, then show cluster sizes, unassigned records, topic terms and five representative examples for each cluster you discuss. Report any analysis failure.
 
@@ -56,7 +56,45 @@ The agent registers your input to obtain a dataset ID, starts a job, polls its s
 
 Plotting requires a chat client or agent with chart/file rendering tools. MCP returns coordinates and assignments; the BANKING77 Python example also creates a standalone HTML plot.
 
-**For “show clusters in ATM”:** the agent needs a separate Qdrant retrieval tool. It embeds the search using the collection's embedding model, retrieves the intended matches with their stored vectors and text, registers that selection, then runs the analysis. This core provides clustering and topics; it does not connect to Qdrant, list collections, embed queries or search the database. A subset of matches is registered as `retrieval_results`; a complete intended selection uses `complete_selection`. Counts describe the records actually supplied.
+## Connect your vector database
+
+Your chat app or agent connects to the database through its retrieval integration, such as application code using the database SDK or a separate database MCP connector. It also connects to this clustering MCP. Supply the database connection settings to that retrieval integration.
+
+For Qdrant, users provide:
+
+| Setting | Example | Purpose |
+| --- | --- | --- |
+| Database URL | `http://localhost:6333` or your Qdrant cloud URL | Address reachable from the retrieval client |
+| API key | Your Qdrant API key | Authentication; optional for local instances without authentication |
+| Collection | `banking77_minilm` or your collection name | Records to search or analyze |
+
+The database API key authenticates Qdrant access. The MCP worker's bearer token authenticates a separate connection to the analysis server.
+
+### Example: “Show clusters in ATM”
+
+Once both connections are configured, ask:
+
+> Search my selected collection for ATM-related records. Analyze the matching selection with DBSCAN and BERTopic, then show cluster sizes, topics, examples and a 3D plot.
+
+The agent/application performs this workflow:
+
+1. Resolve the collection's embedding model and, for named vectors, the vector field to use.
+2. Embed the ATM query using that same model and search Qdrant.
+3. Fetch the intended matching selection with IDs, stored vectors and text; paginate as needed. Map the text payload field to `text`.
+4. Call `register_records` with those records, then `run_analysis` with the DBSCAN/BERTopic plan.
+5. Poll `get_job`, read summaries/examples/result pages, and render the returned coordinates using the chat client's plotting tools.
+
+```text
+Your vector database → IDs + stored vectors + text
+                    → register_records → run_analysis → get_job
+                    → clusters + BERTopic terms + plot coordinates
+```
+
+The retrieval integration must know the collection's embedding model; matching vector dimensions alone does not establish that the embedding spaces match. To analyze the whole collection, fetch all stored records directly; no query embedding is needed. For another database, its retrieval integration supplies the same record format.
+
+Register a retrieved subset as `retrieval_results`; use `complete_selection` when the entire intended selection is supplied. Counts describe the records actually analyzed. Respect the worker's capabilities and limits, and report exceeded limits rather than silently truncating the selection. Large input uses [staged JSONL uploads](docs/mcp.md#connection-options).
+
+**The current core MCP has no database connection or search tool.** It does not list collections or generate query embeddings. A connection string passed to `register_records` will not connect a database; that tool accepts vector records or a server-staged JSONL filename. The [MCP guide](docs/mcp.md#natural-language-chat-requests) explains the retrieval prerequisites and exact analysis calls.
 
 ## All MCP tools
 
