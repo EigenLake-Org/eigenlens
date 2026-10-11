@@ -1,4 +1,4 @@
-"""Real MCP protocol checks for the clustering-only surface."""
+"""Real MCP protocol checks for analysis and caller-owned database tools."""
 import asyncio
 import json
 import os
@@ -14,7 +14,8 @@ from vector_tools.server import AccessMiddleware, build_server
 from test_density import fixture_data, operation
 
 TOOLS = {"get_capabilities", "register_records", "run_analysis", "get_job", "cancel_job",
-         "get_summary", "get_examples", "get_result_page"}
+         "get_summary", "get_examples", "get_result_page", "connect_database", "list_connections",
+         "list_collections", "retrieve_records", "disconnect_database"}
 OPS = [operation(), {"id":"themes", "type":"topics", "clusters_from":"groups", "parameters":{"ngram_max":2}}]
 
 

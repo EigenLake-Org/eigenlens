@@ -12,3 +12,9 @@ datasets==4.8.5
 sentence-transformers==5.7.0
 qdrant-client==1.15.1
 bertopic==0.17.4
+cryptography==50.0.1
+pinecone==8.1.2
+pymilvus==2.6.17
+weaviate-client==4.23.1
+psycopg==3.3.5
+psycopg-binary==3.3.5

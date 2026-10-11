@@ -35,6 +35,7 @@ def worker(root, config_path, job_id, owner):
         if "records" not in spec:
             raise VTError("Only registered record datasets are supported; use register_records")
         source = InMemory(spec["records"], name=spec.get("name", "registered"))
+        source.identity.update(spec.get("source", {}))
         data = Dataset(source, Selection.model_validate(spec["selection"]), config.limits).materialize(
             fields={"metadata", "text"} | set().union(*(REGISTRY[o.type]["fields"] for o in ordered)))
         # All operations share this one execution-time materialization.

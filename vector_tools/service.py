@@ -11,11 +11,14 @@ from .schemas import Selection, Execution, Result, Record, VTError
 from .registry import plan, REGISTRY
 from .backends import LocalBackend
 from .jobs import Supervisor
+from .retrieval import DatabaseManager
+from .databases import capabilities as database_capabilities
 
 class Service:
     def __init__(self, config=None):
         self.config = config or Config()
         self.store = Store(self.config.root)
+        self.databases = DatabaseManager(self)
         self.supervisor = Supervisor(self.config)
     def close(self):
         self.supervisor.close()
@@ -24,7 +27,8 @@ class Service:
             raise VTError("Caller unauthorized")
         return {"schema_version": "1.0",
                 "operations": {k: {"algorithm": v["algorithm"], "parameters": sorted(v["params"]), "required_fields": sorted(v["fields"]), "algorithms": {a: sorted(p) for a,p in v.get("algorithms", {v["algorithm"]: v["params"]}).items()}} for k,v in REGISTRY.items()},
-                "backends": [LocalBackend().capabilities()], "limits": self.config.limits.model_dump()}
+                "backends": [LocalBackend().capabilities()], "limits": self.config.limits.model_dump(),
+                "databases": database_capabilities()}
     def register_records(self, owner, records=None, artifact_name=None, selection_scope="retrieval_results"):
         if owner not in self.config.callers:
             raise VTError("Caller unauthorized")
@@ -47,6 +51,9 @@ class Service:
                         records.append(json.loads(line))
                     if len(records) > self.config.limits.max_rows:
                         raise VTError("Artifact exceeds max_rows")
+        return self._register_snapshot(owner, records, selection_scope)
+
+    def _register_snapshot(self, owner, records, selection_scope, source=None):
         if len(records) > self.config.limits.max_rows:
             raise VTError("Registration exceeds max_rows")
         records = [Record.model_validate(r).model_dump(mode="json") for r in records]
@@ -57,8 +64,25 @@ class Service:
         if selection_scope not in {"retrieval_results", "complete_selection"}:
             raise VTError("Registration scope must be retrieval_results or complete_selection")
         spec = {"records": records, "selection": Selection(ids=[r["id"] for r in records] if selection_scope == "retrieval_results" else None).model_dump(), "name": "registered"}
+        if source is not None:
+            spec["source"] = source
         id = self.store.put(owner, "ds", spec)
         return {"dataset_id": id, "count": len(records), "count_kind": "exact", "count_unit": "vector_records", "scope": selection_scope}
+
+    def connect_database(self, owner, db_type=None, url=None, api_key=None, options=None, name=None):
+        return self.databases.connect(owner, db_type, url, api_key, options, name)
+
+    def list_connections(self, owner):
+        return self.databases.list_connections(owner)
+
+    def list_collections(self, owner, connection_id):
+        return self.databases.list_collections(owner, connection_id)
+
+    def retrieve_records(self, owner, connection_id, collection, query=None, query_vector=None, search_limit=1000):
+        return self.databases.retrieve(owner, connection_id, collection, query, query_vector, search_limit)
+
+    def disconnect_database(self, owner, connection_id):
+        return self.databases.disconnect(owner, connection_id)
     def run_analysis(self, owner, dataset_id, operations, execution=None, idempotency_key=None):
         dataset=self.store.get(owner, dataset_id, "ds")
         if "records" not in dataset:

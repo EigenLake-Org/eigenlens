@@ -1,6 +1,6 @@
 # MCP tools and chat usage
 
-Connect an MCP-capable chat agent to this server, supply records, and ask it to analyze them. MCP tool names are not shell commands. The agent discovers them with MCP `tools/list` and invokes them with `tools/call`.
+Connect an MCP-capable chat agent to this server, then retrieve or supply records and ask it to analyze them. There are 13 tools: five [database connection/retrieval tools](databases.md#exact-database-tool-calls) and eight analysis tools documented below. MCP tool names are not shell commands. The agent discovers them with MCP `tools/list` and invokes them with `tools/call`.
 
 ## Connection options
 
@@ -48,12 +48,12 @@ curl --fail-with-body -X DELETE \
   "http://127.0.0.1:8020/ingress/$upload_name"
 ```
 
-This deletes staging input, preserving any successfully registered dataset. Uploading is an HTTP operation, not one of the eight MCP tools. For automated clients, put cleanup in a `finally` block. Inline MCP HTTP requests have a 2 MiB limit; streamed uploads use the configured input-byte limit.
+This deletes staging input, preserving any successfully registered dataset. Uploading is an HTTP operation, not an MCP tool. For automated clients, put cleanup in a `finally` block. Inline MCP HTTP requests have a 2 MiB limit; streamed uploads use the configured input-byte limit.
 
 ## Complete workflow
 
 1. Inspect `get_capabilities` for supported operations and active limits.
-2. Supply inline records or stage JSONL, then call `register_records`. Save its `dataset_id`.
+2. Connect/list/retrieve with the [database tools](databases.md) to obtain `dataset_id`, or supply inline/staged records with `register_records`.
 3. Call `run_analysis` with that dataset and the clustering/topic plan. Save its `job_id`.
 4. Poll `get_job` with increasing delays until `succeeded`, `failed` or `cancelled`. Let application code handle polling for long jobs.
 5. On success, take `results.groups` and `results.themes` from the job response. These are separate result IDs.
@@ -61,7 +61,7 @@ This deletes staging input, preserving any successfully registered dataset. Uplo
 
 Job states are `queued` → `running` → `succeeded`, `failed` or `cancelled`. Report terminal errors before attempting to read results. Handles are scoped to the caller and server data directory. Keep returned handles in the chat or application state; there is no tool for listing old jobs or datasets.
 
-## Exact calls for all eight tools
+## Exact calls for the eight analysis tools
 
 The JSON below is the payload for MCP `tools/call`: `name` identifies the tool and `arguments` holds its inputs. Your agent normally sends it automatically. Replace `ds_example`, `job_example`, `res_groups_example`, `res_themes_example` and cursor placeholders with values returned by your server.
 
@@ -233,15 +233,9 @@ Useful follow-ups:
 
 > Stop the running analysis and report its final status.
 
-For **“show clusters in ATM” over Qdrant**, your chat agent also needs retrieval access. Its application workflow is:
+For **“show clusters in ATM” over your vector database**, configure a [database connection](databases.md#where-settings-live). The agent calls `connect_database`, `list_collections`, then `retrieve_records` with the selected connection/collection and query. Retrieval registers stored vectors/text and returns the dataset ID used by `run_analysis`. The server resolves a SentenceTransformer model from configuration or stored metadata; externally generated query vectors support other embedding providers. It fails when a text query's model is unknown.
 
-1. Resolve the collection and embedding model outside this core.
-2. Embed the ATM search in the collection's embedding space.
-3. Retrieve the intended matching selection with stored vectors, IDs and text; paginate as needed and explain the selection/count.
-4. Register those records with the appropriate scope, then run the same DBSCAN/BERTopic plan.
-5. Summarize that selection and render the returned coordinates if chart tools are available.
-
-The eight core tools do not connect to a database, list collections, generate embeddings or perform semantic retrieval. A prompt alone cannot supply those capabilities. Asking about ATM-related clusters in an already analyzed full banking corpus can inspect its topics/examples; rerunning clustering specifically on ATM matches requires a newly retrieved selection.
+Semantic retrieval is a bounded ranked selection; report its count and `search_limit`. To analyze the complete collection, omit query inputs and retrieve all pages, subject to server limits. Asking about ATM-related clusters in an already analyzed full corpus can inspect its topics/examples; rerunning clustering specifically on ATM results uses a new retrieved snapshot.
 
 ## Python MCP client smoke example
 

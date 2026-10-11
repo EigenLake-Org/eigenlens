@@ -5,6 +5,7 @@ import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from .datasets import canonical
 from .schemas import VTError
 
@@ -26,10 +27,15 @@ class Store:
                     updated_at TEXT NOT NULL, idempotency_key TEXT, request_hash TEXT,
                     UNIQUE(owner,idempotency_key));
             ''')
+    @contextmanager
     def connect(self):
         db = sqlite3.connect(self.root / "metadata.sqlite", timeout=30)
         db.row_factory = sqlite3.Row
-        return db
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
     def put(self, owner, kind, value, id=None):
         id = id or kind + "_" + uuid.uuid4().hex
         path = self.root / "artifacts" / (id + ".json")

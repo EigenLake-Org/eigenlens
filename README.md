@@ -11,10 +11,10 @@ Cluster existing embeddings and model their topics through Python or an MCP job 
 Requires Python 3.11 or newer. Install the MCP server with pip from this repository's implementation branch:
 
 ```bash
-pip install 'vector-tools[server] @ git+https://github.com/EigenLake-Org/vector-tools.git@feature/banking77-dbscan'
+pip install 'vector-tools[server,qdrant] @ git+https://github.com/EigenLake-Org/vector-tools.git@feature/banking77-dbscan'
 ```
 
-This installs the `vector-ml` command, DBSCAN and BERTopic. The BANKING77 demo below adds its dataset and Qdrant dependencies.
+This installs the `vector-ml` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
 
 ## Connect MCP to a chat agent
 
@@ -37,7 +37,7 @@ Other local MCP hosts can use the same executable, arguments and environment. Fo
 
 ### Ask this in chat
 
-First [connect your vector database through the agent's retrieval integration](#connect-your-vector-database) or [stage a JSONL file](docs/mcp.md#connection-options). Then ask:
+First [connect your vector database through MCP](#connect-your-vector-database) or [stage a JSONL file](docs/mcp.md#connection-options). Then ask:
 
 > Use vector-tools to cluster the dataset I supplied with DBSCAN search and model its topics with BERTopic using phrases up to two words. Wait for the job to finish, then show cluster sizes, unassigned records, topic terms and five representative examples for each cluster you discuss. Report any analysis failure.
 
@@ -46,6 +46,10 @@ The agent registers your input to obtain a dataset ID, starts a job, polls its s
 | Ask in chat | Tools the agent uses |
 | --- | --- |
 | “What can you analyze, and what are the limits?” | `get_capabilities` |
+| “Connect to the database configured on this server.” | `connect_database` with no arguments (local default) |
+| “Show my saved database connections.” | `list_connections` |
+| “List collections in my database.” | `list_collections` |
+| “Show clusters in ATM.” | `retrieve_records` with a query → `run_analysis` → `get_job` |
 | “Analyze these supplied vector records.” | `register_records` → `run_analysis` → `get_job` |
 | “What is the analysis doing?” | `get_job` |
 | “Stop this analysis.” | `cancel_job` |
@@ -58,13 +62,41 @@ Plotting requires a chat client or agent with chart/file rendering tools. MCP re
 
 ## Connect your vector database
 
-Your chat app or agent connects to the database through its retrieval integration, such as application code using the database SDK or a separate database MCP connector. It also connects to this clustering MCP. Supply the database connection settings to that retrieval integration.
+Database connections are managed by this MCP server through read-only adapters. Configure a default on the server, or have your application's connection form call `connect_database` with `db_type`, URL, API key and optional field/model mappings. It returns a caller-owned `connection_id`; your chat keeps that ID and its selected collection. Supply secrets through configuration or the connection form.
+
+### Where to set connection settings
+
+For a local Qdrant default, set these variables in the environment used to launch MCP:
+
+```bash
+# Generate once; retain this key in your private server environment across restarts.
+export VECTOR_ML_CONNECTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+export VECTOR_ML_DATABASE_TYPE=qdrant
+export VECTOR_ML_DATABASE_URL=http://localhost:6333
+# Set VECTOR_ML_DATABASE_API_KEY in your private environment for an authenticated database.
+```
+
+For Codex, register the server with these environment settings (replace the earlier generic registration):
+
+```bash
+codex mcp add vector-tools \
+  --env "VECTOR_ML_DATA=$HOME/.local/share/vector-tools" \
+  --env "VECTOR_ML_CONNECTION_KEY=$VECTOR_ML_CONNECTION_KEY" \
+  --env "VECTOR_ML_DATABASE_TYPE=$VECTOR_ML_DATABASE_TYPE" \
+  --env "VECTOR_ML_DATABASE_URL=$VECTOR_ML_DATABASE_URL" \
+  --env "VECTOR_ML_DATABASE_API_KEY=${VECTOR_ML_DATABASE_API_KEY:-}" \
+  -- vector-ml
+```
+
+Start a new session and ask: **“Connect to the configured database and list its collections.”** The no-argument default is available to caller `local`. Other authenticated callers supply their own connection settings. For Docker, keep the same settings in a private `.env` file; the worker receives them through Compose. Its local Qdrant URL is `http://qdrant:6333`. See [database setup and exact MCP calls](docs/databases.md).
+
+Saved connections live in `<VECTOR_ML_DATA>/connections.sqlite` (Docker: `/data/connections.sqlite` in `chat-worker-data`). URLs, credentials and options are encrypted. Keep `VECTOR_ML_CONNECTION_KEY` outside that database and preserve it across restarts. Connections are scoped to the authenticated caller; chats sharing a server caller identity share that caller's access.
 
 For Qdrant, users provide:
 
 | Setting | Example | Purpose |
 | --- | --- | --- |
-| Database URL | `http://localhost:6333` or your Qdrant cloud URL | Address reachable from the retrieval client |
+| Database URL | `http://localhost:6333` or your Qdrant cloud URL | Address reachable from the MCP server |
 | API key | Your Qdrant API key | Authentication; optional for local instances without authentication |
 | Collection | `banking77_minilm` or your collection name | Records to search or analyze |
 
@@ -72,29 +104,29 @@ The database API key authenticates Qdrant access. The MCP worker's bearer token 
 
 ### Example: “Show clusters in ATM”
 
-Once both connections are configured, ask:
+After connecting and selecting a collection, ask:
 
-> Search my selected collection for ATM-related records. Analyze the matching selection with DBSCAN and BERTopic, then show cluster sizes, topics, examples and a 3D plot.
+> Search my selected collection for ATM-related records. Cluster every retrieved record with DBSCAN and BERTopic. Show the selection count and search limit, cluster sizes, topics, examples and a 3D plot.
 
-The agent/application performs this workflow:
+The agent uses this workflow:
 
-1. Resolve the collection's embedding model and, for named vectors, the vector field to use.
-2. Embed the ATM query using that same model and search Qdrant.
-3. Fetch the intended matching selection with IDs, stored vectors and text; paginate as needed. Map the text payload field to `text`.
-4. Call `register_records` with those records, then `run_analysis` with the DBSCAN/BERTopic plan.
+1. Call `connect_database` once and `list_collections`, then keep the connection ID and selected collection.
+2. Call `retrieve_records` with `query: "ATM"`. The server resolves a SentenceTransformer model from saved options or stored `embedding_model` metadata and embeds the query in the background. Other embedding providers can supply `query_vector`.
+3. The adapter retrieves stored vectors/text and registers an immutable snapshot, returning `dataset_id`.
+4. Call `run_analysis` with that dataset ID and the DBSCAN/BERTopic plan.
 5. Poll `get_job`, read summaries/examples/result pages, and render the returned coordinates using the chat client's plotting tools.
 
 ```text
-Your vector database → IDs + stored vectors + text
-                    → register_records → run_analysis → get_job
+connect_database → list_collections → retrieve_records
+                    → run_analysis → get_job
                     → clusters + BERTopic terms + plot coordinates
 ```
 
-The retrieval integration must know the collection's embedding model; matching vector dimensions alone does not establish that the embedding spaces match. To analyze the whole collection, fetch all stored records directly; no query embedding is needed. For another database, its retrieval integration supplies the same record format.
+The server must know the collection's embedding model; matching dimensions alone does not establish that embedding spaces match. It fails with an actionable error when the model is unknown. Model/field mappings are backend configuration, so users can simply ask questions. To analyze the whole collection, omit `query` and `query_vector`; the adapter traverses all pages without generating a query embedding.
 
-Register a retrieved subset as `retrieval_results`; use `complete_selection` when the entire intended selection is supplied. Counts describe the records actually analyzed. Respect the worker's capabilities and limits, and report exceeded limits rather than silently truncating the selection. Large input uses [staged JSONL uploads](docs/mcp.md#connection-options).
+Semantic retrieval is a bounded top-k selection (`search_limit` defaults to 1,000) and returns scope `retrieval_results`. Whole-collection retrieval returns `complete_selection` or fails at row/byte/time limits without registering a partial dataset. Analysis processes all returned records. These counts do not imply every semantic match in the database. External clients can still supply records using `register_records` or [staged JSONL uploads](docs/mcp.md#connection-options).
 
-**The current core MCP has no database connection or search tool.** It does not list collections or generate query embeddings. A connection string passed to `register_records` will not connect a database; that tool accepts vector records or a server-staged JSONL filename. The [MCP guide](docs/mcp.md#natural-language-chat-requests) explains the retrieval prerequisites and exact analysis calls.
+Supported database adapters: **Qdrant, Pinecone, Milvus, Weaviate and PostgreSQL/pgvector**. `get_capabilities` reports which drivers are installed. Pinecone full scans require serverless indexes; pgvector uses vector tables in the configured schema; Weaviate requires its HTTP and gRPC endpoints. The [database guide](docs/databases.md) covers options and backend limitations.
 
 ## All MCP tools
 
@@ -103,6 +135,11 @@ These are tool calls made by your agent, not terminal commands. Optional argumen
 | Tool | Arguments | What it returns |
 | --- | --- | --- |
 | `get_capabilities` | None | Algorithms, supported parameters and server limits |
+| `connect_database` | `db_type?`, `url?`, `api_key?`, `options?`, `name?` | Saved `connection_id`; no arguments uses the local server default |
+| `list_connections` | None | This caller's saved connection IDs and labels |
+| `list_collections` | `connection_id` | Collection/index/table names |
+| `retrieve_records` | `connection_id`, `collection`; `query?` **or** `query_vector?`, `search_limit?` | Registered `dataset_id`, exact supplied count and selection scope |
+| `disconnect_database` | `connection_id` | Removes the saved connection; existing datasets/results remain |
 | `register_records` | `records` **or** `artifact_name`; `selection_scope?` | `dataset_id` and registered count |
 | `run_analysis` | `dataset_id`, `operations`; `execution?`, `idempotency_key?` | Background job with `job_id` |
 | `get_job` | `job_id` | Status/progress; result IDs on success or an error on failure |
@@ -111,7 +148,7 @@ These are tool calls made by your agent, not terminal commands. Optional argumen
 | `get_examples` | `result_id`; `cluster_id?`, `limit?` (default 5, range 1–100) | Representative record IDs and text excerpts |
 | `get_result_page` | `result_id`; `cursor?`, `limit?` (default 100, range 1–1,000) | Assignment/coordinate or topic rows, plus `next_cursor` |
 
-See [exact JSON calls for every tool and the complete workflow](docs/mcp.md). Summaries are compact; use result pages for the full output. DBSCAN keeps up to five representative examples per cluster. Cluster `-1` is unassigned data.
+There are **13 MCP tools**. See [analysis calls](docs/mcp.md) and [database calls](docs/databases.md) for exact JSON. Summaries are compact; use result pages for the full output. DBSCAN keeps up to five representative examples per cluster. Cluster `-1` is unassigned data.
 
 ### The clustering call
 
@@ -182,7 +219,8 @@ This starts a local MCP server, discovers its tools, analyzes **62 synthetic rec
 
 - [Docker worker setup and concurrency](docs/worker.md)
 - [MCP connection, chat prompts and exact tool calls](docs/mcp.md)
+- [Database connections, storage and adapters](docs/databases.md)
 - [Record, analysis and upload contracts](docs/contracts.md)
 - [Architecture](docs/architecture.md)
 
-For development: `pip install -e '.[server,banking,test]'` then `pytest -q`.
+For development: `pip install -e '.[server,banking,databases,test]'` then `pytest -q`.

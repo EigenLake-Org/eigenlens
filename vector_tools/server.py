@@ -22,7 +22,7 @@ principal = contextvars.ContextVar("principal", default="local")
 def build_server(service, host="127.0.0.1", port=8000):
     server = FastMCP("Vector ML", host=host, port=port, stateless_http=True, json_response=True,
                      max_request_body_size=2 * 1024 * 1024,
-                     instructions="Inspect capabilities, register selected vector records, run async clustering and topic labels, poll job status, then inspect results and examples. Counts are vector records, not deduplicated tickets. Themes are evidence for investigation, not confirmed causes.",
+                     instructions="Inspect capabilities. Connect a supported vector database, list collections and retrieve stored vectors/text to get a dataset_id, or register caller records. If retrieval count is zero, report no records instead of starting analysis. Run async clustering and BERTopic, poll job status, then inspect results and examples. Reuse caller-owned connection IDs. Whole-collection retrieval is complete or fails at limits; semantic retrieval is a bounded top-k selection. Never claim top-k results are every match. Counts are vector records, not deduplicated tickets. Themes are evidence for investigation, not confirmed causes.",
                      transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True,
                         allowed_hosts=["127.0.0.1:*", "localhost:*", "service:*", "chat-worker:*", "testserver"],
                         allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://service:*", "http://chat-worker:*"]))
@@ -37,8 +37,30 @@ def build_server(service, host="127.0.0.1", port=8000):
             raise VTError(f"{type(exc).__name__}: request failed; check request and service diagnostics") from None
     @server.tool()
     async def get_capabilities() -> dict:
-        """List clustering algorithms, topic parameters, compute backend and limits."""
+        """List clustering algorithms, topic parameters, database adapters/installed drivers and limits."""
         return await invoke("get_capabilities")
+    @server.tool()
+    async def connect_database(db_type: str | None = None, url: str | None = None, api_key: str | None = None,
+                               options: dict | None = None, name: str | None = None) -> dict:
+        """Validate and save a caller-owned encrypted database connection; return connection_id. Requires VECTOR_ML_CONNECTION_KEY on the server. No arguments uses the local caller's operator-configured VECTOR_ML_DATABASE_* default. Do not ask users to paste secrets in chat; the client should supply credentials through its connection form/configuration. Supported adapters and required extras are in get_capabilities."""
+        return await invoke("connect_database", db_type, url, api_key, options, name)
+    @server.tool()
+    async def list_connections() -> dict:
+        """List this caller's saved connection IDs and labels without credentials or URLs."""
+        return await invoke("list_connections")
+    @server.tool()
+    async def list_collections(connection_id: str) -> dict:
+        """List collections/indexes/vector tables through the selected caller-owned connection."""
+        return await invoke("list_collections", connection_id)
+    @server.tool()
+    async def retrieve_records(connection_id: str, collection: str, query: str | None = None,
+                               query_vector: list[float] | None = None, search_limit: int = 1000) -> dict:
+        """Read stored vectors/text and register a snapshot, returning dataset_id for run_analysis. Omit query/query_vector to paginate the entire collection or fail at limits. A query uses a SentenceTransformer model from saved options/stored embedding_model metadata; other embedding providers supply query_vector. Search is bounded top-k (default 1000), explicitly retrieval_results. Use all retrieved records for analysis. This tool does not start a clustering job."""
+        return await invoke("retrieve_records", connection_id, collection, query, query_vector, search_limit)
+    @server.tool()
+    async def disconnect_database(connection_id: str) -> dict:
+        """Delete this caller's saved connection and encrypted credentials. Registered datasets and analysis results remain."""
+        return await invoke("disconnect_database", connection_id)
     @server.tool()
     async def register_records(records: list[Record] | None = None, artifact_name: str | None = None, selection_scope: Literal["retrieval_results", "complete_selection"] = "retrieval_results") -> dict:
         """Register bounded caller records OR an application-staged JSONL filename in ingress/<caller>/. External service handles are not automatically resolvable."""

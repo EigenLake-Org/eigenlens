@@ -7,11 +7,17 @@ name = "vector-tools"
 version = "0.1.0"
 description = "Clustering and topic labels for vector records through Python and MCP"
 requires-python = ">=3.11"
-dependencies = ["numpy>=2,<3", "scipy>=1.13,<2", "scikit-learn>=1.6,<2", "pydantic>=2.10,<3", "threadpoolctl>=3", "bertopic>=0.17.4,<0.18"]
+dependencies = ["numpy>=2,<3", "scipy>=1.13,<2", "scikit-learn>=1.6,<2", "pydantic>=2.10,<3", "threadpoolctl>=3", "bertopic>=0.17.4,<0.18", "cryptography>=44,<51"]
 
 [project.optional-dependencies]
 banking = ["datasets>=4,<5", "sentence-transformers>=5,<6", "qdrant-client>=1.15,<2"]
 server = ["mcp>=1.30,<2", "uvicorn>=0.30"]
+qdrant = ["qdrant-client>=1.15,<2"]
+pinecone = ["pinecone>=8.1,<9", "httpx>=0.28,<1"]
+milvus = ["pymilvus>=2.5,<3"]
+weaviate = ["weaviate-client>=4.16,<5"]
+pgvector = ["psycopg[binary]>=3.2,<4"]
+databases = ["qdrant-client>=1.15,<2", "pinecone>=8.1,<9", "httpx>=0.28,<1", "pymilvus>=2.5,<3", "weaviate-client>=4.16,<5", "psycopg[binary]>=3.2,<4"]
 test = ["pytest>=8", "pytest-asyncio>=0.25", "httpx>=0.28"]
 
 [project.scripts]

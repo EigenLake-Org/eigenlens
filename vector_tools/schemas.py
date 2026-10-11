@@ -45,6 +45,7 @@ class Limits(Contract):
     max_clusters: int = Field(default=256, ge=1)
     max_working_bytes: int = Field(default=256 * 1024 * 1024, ge=1024)
     max_seconds: int = Field(default=300, ge=1)
+    max_connections: int = Field(default=128, ge=1, le=4096)
 
 class Parameters(Contract):
     random_state: int | None = None

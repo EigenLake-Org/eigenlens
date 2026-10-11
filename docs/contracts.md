@@ -33,6 +33,11 @@ The 3D PCA projection is separate from the clustering space and preserves all re
 | Tool | Purpose |
 | --- | --- |
 | `get_capabilities` | Algorithms, parameters, backend and active limits |
+| `connect_database` | Validate and save an encrypted caller-owned database connection |
+| `list_connections` | List this caller's saved connection IDs and labels |
+| `list_collections` | List collections/indexes/vector tables for a connection |
+| `retrieve_records` | Retrieve stored vectors/text and register an immutable dataset |
+| `disconnect_database` | Delete saved connection credentials; retain existing snapshots/results |
 | `register_records` | Persist caller-owned input snapshot |
 | `run_analysis` | Validate and enqueue; return job handle |
 | `get_job` | Status, error or operation-to-result handles |
@@ -44,6 +49,8 @@ The 3D PCA projection is separate from the clustering space and preserves all re
 Jobs progress through `queued`, `running`, then `succeeded`, `failed` or `cancelled`. Reusing an owner-scoped `idempotency_key` with the identical request returns the same job; a different request fails. Application code should poll with backoff. A full queue rejects a submission before creating a job.
 
 Results contain immutable IDs, dataset fingerprints, effective parameters, library versions, source scope and count semantics. Worker results include execution hostname and PID. Summaries omit centroids and show at most 20 topic groups with 10 terms each; page results to obtain full output. Pages for DBSCAN contain `id`, `cluster_id` and `pca_3d`; topic pages contain weighted terms. Cursors cannot be reused for another result. Dataset, job and result handles are caller-scoped.
+
+Database definitions are caller-scoped encrypted records in `connections.sqlite`, separate from job metadata. They require `VECTOR_ML_CONNECTION_KEY` in the server environment. Whole-collection retrieval scans every page or fails at limits without creating a partial dataset. Semantic retrieval is a bounded top-k `retrieval_results` snapshot (default search limit 1,000). Analysis provenance retains the database type, connection/collection, selected vector field, retrieval mode and available embedding metadata. It does not retain connection credentials. See [database contracts and adapters](databases.md).
 
 ## HTTP JSONL upload
 
