@@ -22,6 +22,10 @@ class Config:
             count=limits.get("max_jobs",Limits().max_jobs)
             limits["max_working_bytes"]=int(total)//count
         self.limits = Limits.model_validate(limits)
+        budget = os.getenv("VECTOR_ML_CPU_BUDGET", "1")
+        if not re.fullmatch(r"(?:[1-9]|[1-5][0-9]|6[0-4])", budget):
+            raise VTError("VECTOR_ML_CPU_BUDGET must be an integer from 1 to 64")
+        self.numeric_threads = max(1, int(budget) // self.limits.max_jobs)
         self.root = Path(os.getenv("VECTOR_ML_DATA", self.raw.get("data_dir", ".vector-ml"))).resolve()
         self.callers = self.raw.get("callers", {"local": {}})
         if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", owner) for owner in self.callers):

@@ -31,6 +31,13 @@ def test_configured_default_is_preserved(monkeypatch):
     assert Config('config/chat-worker.json').limits.max_jobs==1
 
 
+@pytest.mark.parametrize('workers,threads',[(1,2),(2,1),(4,1)])
+def test_cpu_budget_shared_across_workers(monkeypatch,workers,threads):
+    monkeypatch.setenv('VECTOR_ML_CPU_BUDGET','2')
+    monkeypatch.setenv('VECTOR_ML_WORKERS',str(workers))
+    assert Config().numeric_threads==threads
+
+
 def test_two_real_jobs_run_and_third_waits(tmp_path,monkeypatch):
     from vector_tools.demo import tickets
     from worker_helpers import paused_cluster_worker, wait_started

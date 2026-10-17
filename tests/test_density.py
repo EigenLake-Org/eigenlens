@@ -66,3 +66,65 @@ def test_small_silhouette_and_empty_vocabulary():
     result=vt.analyze(data,[operation(silhouette_sample_size=3)])["groups"]
     assert result.summary_data["vocabulary_status"]=="empty_vocabulary"
     json.dumps(result.model_dump(),allow_nan=False)
+
+
+@pytest.mark.parametrize('components',[1,2,3,8])
+def test_cached_search_matches_sklearn_euclidean_reference(components):
+    from sklearn.cluster import DBSCAN
+    from sklearn.decomposition import PCA
+    from sklearn.metrics import silhouette_score
+    from sklearn.preprocessing import normalize
+    from threadpoolctl import threadpool_limits
+    rng=np.random.default_rng(31)
+    vectors=np.vstack([rng.normal(np.eye(8)[i],.025,(12,8)) for i in range(3)])
+    # Include exact duplicates, whose off-diagonal distances must remain zero.
+    vectors=np.vstack([vectors,vectors[:2]])
+    data=vt.from_records([{'id':f'{i:03}','vector':v.tolist()} for i,v in enumerate(vectors)]).materialize()
+    params={'pca_components':components,'eps_values':[.05,.15,.4,.9],
+            'min_samples_values':[2,5],'silhouette_sample_size':20}
+    result=vt.cluster(data,**params)
+    assert result.effective_parameters['distance_cache']=='silhouette_subset'
+    assert result.effective_parameters['neighborhood_cache']=='radius_graph'
+    with threadpool_limits(limits=1):
+        x=normalize(data.vectors())
+        reduced=normalize(PCA(n_components=components,svd_solver='full',random_state=42).fit_transform(x))
+        reference_best=None;reference_labels=None
+        for row in result.summary_data['parameter_search']:
+            labels=DBSCAN(eps=row['eps'],min_samples=row['min_samples'],n_jobs=1).fit_predict(reduced)
+            idx=np.flatnonzero(labels!=-1)
+            assert row['clusters']==len(set(labels)-{-1})
+            assert row['noise_percentage']==pytest.approx(100*(1-len(idx)/len(labels)))
+            if len(idx)>20:idx=np.sort(np.random.default_rng(42).choice(idx,20,replace=False))
+            score=silhouette_score(reduced[idx],labels[idx]) if 2<=len(set(labels[idx]))<len(idx) else None
+            assert row['silhouette']==pytest.approx(score,abs=1e-12) if score is not None else row['silhouette'] is None
+            if score is not None and row['clusters']>=2 and row['noise_percentage']<70 and (reference_best is None or score>reference_best):
+                reference_best=score;reference_labels=labels
+        expected=reference_labels if reference_labels is not None else np.full(len(x),-1)
+        np.testing.assert_array_equal([r['cluster_id'] for r in result.rows],expected)
+        np.testing.assert_allclose([r['pca_3d'] for r in result.rows],PCA(n_components=3,svd_solver='full').fit_transform(x),atol=1e-12)
+
+
+def test_distance_cache_falls_back_without_dropping_records():
+    data=fixture_data(limits=Limits(max_working_bytes=45000))
+    fallback=vt.analyze(data,[operation()])['groups']
+    cached=vt.analyze(fixture_data(),[operation()])['groups']
+    assert fallback.effective_parameters['distance_cache']=='disabled_memory_budget'
+    assert fallback.processed==cached.processed==33
+    assert fallback.rows==cached.rows
+
+
+def test_numeric_budget_is_scoped_to_one_execution():
+    from vector_tools.execution_context import numeric_budget,numeric_threads
+    assert numeric_threads()==1
+    with numeric_budget(2):
+        assert vt.cluster(fixture_data()).effective_parameters['numeric_threads']==2
+    assert numeric_threads()==1
+
+
+def test_neighbor_cache_falls_back_within_memory_budget():
+    # Dense distances fit, but retaining graph edges and DBSCAN copies does not.
+    data=fixture_data(limits=Limits(max_working_bytes=60000))
+    result=vt.analyze(data,[operation()])['groups']
+    assert result.effective_parameters['distance_cache']=='silhouette_subset'
+    assert result.effective_parameters['neighborhood_cache']=='disabled_memory_budget'
+    assert result.rows==vt.analyze(fixture_data(),[operation()])['groups'].rows

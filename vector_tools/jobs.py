@@ -12,6 +12,7 @@ from .schemas import Selection, VTError
 from .records import InMemory
 from .backends import LocalBackend
 from .registry import REGISTRY, plan
+from .execution_context import numeric_budget
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
 
@@ -40,7 +41,8 @@ def worker(root, config_path, job_id, owner):
             fields={"metadata", "text"} | set().union(*(REGISTRY[o.type]["fields"] for o in ordered)))
         # All operations share this one execution-time materialization.
         stage_id = store.put(owner, "data", data.serializable())
-        results = LocalBackend().execute(data, ordered, run_id=job_id)
+        with numeric_budget(config.numeric_threads):
+            results = LocalBackend().execute(data, ordered, run_id=job_id)
         refs = {}
         for op_id, result in results.items():
             result.summary_data["materialized_artifact_id"] = stage_id

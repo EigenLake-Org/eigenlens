@@ -13,6 +13,7 @@ from .backends import LocalBackend
 from .jobs import Supervisor
 from .retrieval import DatabaseManager
 from .databases import capabilities as database_capabilities
+from .cache import analysis_key
 
 class Service:
     def __init__(self, config=None):
@@ -28,6 +29,7 @@ class Service:
         return {"schema_version": "1.0",
                 "operations": {k: {"algorithm": v["algorithm"], "parameters": sorted(v["params"]), "required_fields": sorted(v["fields"]), "algorithms": {a: sorted(p) for a,p in v.get("algorithms", {v["algorithm"]: v["params"]}).items()}} for k,v in REGISTRY.items()},
                 "backends": [LocalBackend().capabilities()], "limits": self.config.limits.model_dump(),
+                "execution": {"numeric_threads_per_job": self.config.numeric_threads, "completed_result_cache": True},
                 "databases": database_capabilities()}
     def register_records(self, owner, records=None, artifact_name=None, selection_scope="retrieval_results"):
         if owner not in self.config.callers:
@@ -91,8 +93,12 @@ class Service:
         if execution.mode != "async":
             raise VTError("Service jobs require async mode. Use the Python SDK for synchronous execution.")
         ordered = plan(operations, execution.backend, self.config.limits)
-        payload = {"dataset_id": dataset_id, "operations": [o.model_dump() for o in ordered], "execution": execution.model_dump()}
+        execution_spec=execution.model_dump(exclude={'use_cache'})
+        if not execution.use_cache:
+            execution_spec['use_cache']=False
+        payload = {"dataset_id": dataset_id, "operations": [o.model_dump() for o in ordered], "execution": execution_spec}
         digest = hashlib.sha256(canonical(payload).encode()).hexdigest()
+        cache_key = analysis_key(dataset, payload['operations'], payload['execution'], self.config)
         if idempotency_key is not None and not 1 <= len(idempotency_key) <= 128:
             raise VTError("idempotency_key must contain 1..128 characters")
         with self.store.connect() as db:
@@ -102,16 +108,32 @@ class Service:
                 if old["request_hash"] != digest:
                     raise VTError("Idempotency key already used for a different request")
                 return self.get_job(owner, old["id"])
-            count = db.execute("SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[0]
-            if count >= self.config.limits.max_pending_jobs:
-                raise VTError("Job queue is full; retry later with the same idempotency key")
-            id = "job_" + uuid.uuid4().hex
-            db.execute("INSERT INTO jobs(id,owner,status,payload,created_at,updated_at,idempotency_key,request_hash) VALUES(?,?,?,?,?,?,?,?)", (id, owner, "queued", canonical(payload), now(), now(), idempotency_key, digest))
+            cached = db.execute("SELECT id,results FROM jobs WHERE owner=? AND cache_key=? AND status='succeeded' AND cached_from_job IS NULL ORDER BY updated_at DESC LIMIT 1", (owner,cache_key)).fetchone() if execution.use_cache else None
+            if cached:
+                try:
+                    refs=json.loads(cached['results'])
+                    if set(refs)!={op.id for op in ordered}:
+                        raise ValueError()
+                    for result_id in refs.values():
+                        self.result(owner,result_id)
+                except (VTError,ValueError,OSError):
+                    cached=None
+            if cached:
+                id="job_"+uuid.uuid4().hex
+                timestamp=now()
+                db.execute("INSERT INTO jobs(id,owner,status,payload,results,created_at,updated_at,idempotency_key,request_hash,cache_key,cached_from_job) VALUES(?,?,?,?,?,?,?,?,?,?,?)", (id,owner,'succeeded',canonical(payload),cached['results'],timestamp,timestamp,idempotency_key,digest,cache_key,cached['id']))
+            else:
+                count = db.execute("SELECT COUNT(*) FROM jobs WHERE status IN ('queued','running')").fetchone()[0]
+                if count >= self.config.limits.max_pending_jobs:
+                    raise VTError("Job queue is full; retry later with the same idempotency key")
+                id = "job_" + uuid.uuid4().hex
+                db.execute("INSERT INTO jobs(id,owner,status,payload,created_at,updated_at,idempotency_key,request_hash,cache_key) VALUES(?,?,?,?,?,?,?,?,?)", (id, owner, "queued", canonical(payload), now(), now(), idempotency_key, digest, cache_key))
         return self.get_job(owner, id)
     def get_job(self, owner, job_id):
         job = self.store.job(owner, job_id)
         return {"job_id": job_id, **{k:job[k] for k in ["status", "results", "error", "created_at", "updated_at"]},
-                "backend": "local", "progress": {"phase": job["status"], "fraction": 1 if job["status"] == "succeeded" else None}}
+                "backend": "local", "cache_hit": bool(job['cached_from_job']), "cached_from_job": job['cached_from_job'],
+                "progress": {"phase": job["status"], "fraction": 1 if job["status"] == "succeeded" else None}}
     def cancel_job(self, owner, job_id):
         self.supervisor.cancel(owner, job_id)
         return self.get_job(owner, job_id)

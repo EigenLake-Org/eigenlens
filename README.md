@@ -172,6 +172,14 @@ Semantic retrieval is a bounded top-k selection (`search_limit` defaults to 1,00
 
 Supported database adapters: **Qdrant, Pinecone, Milvus, Weaviate and PostgreSQL/pgvector**. `get_capabilities` reports which drivers are installed. Pinecone full scans require serverless indexes; pgvector uses vector tables in the configured schema; Weaviate requires its HTTP and gRPC endpoints. The [database guide](docs/databases.md) covers options and backend limitations.
 
+## Reuse completed analysis
+
+`run_analysis` automatically reuses successful results for the same caller when the exact registered snapshot, selection scope/provenance, operations, limits and analysis implementation/dependency versions match. A new dataset ID containing identical records can hit the cache. Changed vectors, text, metadata or settings cause a fresh job. Failed, cancelled and in-flight jobs are not reused; missing result artifacts cause a cache miss.
+
+`run_analysis` and `get_job` return `cache_hit` and `cached_from_job`. A hit creates a completed job record referencing the original owned results without starting another worker. Result timestamps, materialized artifact IDs and execution host/PID describe that original computation. Cache metadata persists in `metadata.sqlite` across server restarts. Registered snapshots and results still require manual retention management.
+
+To request a fresh computation, include `"execution": {"use_cache": false}` in the `run_analysis` arguments. Normal cache reuse is enabled by default. Explicit idempotency keys continue to identify the exact request, independently of result reuse. See [performance and CPU/memory settings](docs/performance.md).
+
 ## All MCP tools
 
 These are tool calls made by your agent, not terminal commands. Optional arguments are marked `?`.

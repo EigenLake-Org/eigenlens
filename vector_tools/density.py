@@ -1,14 +1,18 @@
 """Bounded PCA/DBSCAN search; labels are used only for post-hoc evaluation."""
 from collections import Counter
+from scipy.sparse import vstack
 import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import silhouette_score, adjusted_rand_score, normalized_mutual_info_score
+from sklearn.metrics import pairwise_distances
+from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 from threadpoolctl import threadpool_limits
 from .operators import base, example, matrix
 from .schemas import Parameters, VTError
+from .execution_context import numeric_threads
 
 
 def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
@@ -31,17 +35,42 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
     reserve = x.nbytes * 8 + n*n*24 + min(n, silhouette_sample_size)**2*8
     if reserve > data.limits.max_working_bytes:
         raise VTError("DBSCAN worst-case memory exceeds max_working_bytes; sample fewer records or explicitly raise the budget")
-    with threadpool_limits(limits=1):
+    # Retain at most one silhouette subset matrix, never all n-by-n distances.
+    sample_bytes = min(n, silhouette_sample_size)**2*8
+    cache_distances = reserve + sample_bytes <= data.limits.max_working_bytes
+    graph_budget = data.limits.max_working_bytes - reserve - (sample_bytes if cache_distances else 0)
+    with threadpool_limits(limits=numeric_threads()):
         x = normalize(x)
         if not np.any(np.var(x, axis=0) > 0):
             raise VTError("DBSCAN requires variation between normalized vectors")
         effective_components = min(pca_components, n-1, dim)
-        pca = PCA(n_components=effective_components, random_state=random_state, svd_solver="full")
-        reduced = normalize(pca.fit_transform(x))
+        pca = PCA(n_components=max(effective_components, min(3, n-1, dim)), random_state=random_state, svd_solver="full")
+        scores = pca.fit_transform(x)
+        reduced = normalize(scores[:, :effective_components])
+        projection = scores[:, :min(3, n-1, dim)].copy()
+        neighborhoods = None
+        chunk_rows = min(128, graph_budget // (n*48))
+        if chunk_rows:
+            neighbors = NearestNeighbors(metric="euclidean", algorithm="brute", n_jobs=1).fit(reduced)
+            parts, edges = [], 0
+            for start in range(0, n, chunk_rows):
+                part = neighbors.radius_neighbors_graph(reduced[start:start+chunk_rows],
+                    radius=max(eps_values), mode="distance", sort_results=True)
+                edges += part.nnz
+                # Allow for graph assembly, DBSCAN copies and neighborhood arrays.
+                if edges*48 + (n+1)*16 > graph_budget:
+                    break
+                parts.append(part)
+            else:
+                neighborhoods = vstack(parts, format="csr")
+            del parts, part, neighbors
+        distances, distance_indices = None, None
+        search_input = neighborhoods if neighborhoods is not None else reduced
         search, best, best_labels = [], None, None
         for eps in eps_values:
             for min_samples in min_samples_values:
-                labels = DBSCAN(eps=eps, min_samples=min_samples, metric="euclidean", n_jobs=1).fit_predict(reduced)
+                labels = DBSCAN(eps=eps, min_samples=min_samples,
+                    metric="precomputed" if neighborhoods is not None else "euclidean", n_jobs=1).fit_predict(search_input)
                 count = len(set(labels) - {-1})
                 indices = np.flatnonzero(labels != -1)
                 noise = 1 - len(indices)/n
@@ -50,7 +79,15 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
                 unique = len(set(labels[indices]))
                 score = None
                 if 2 <= unique < len(indices):
-                    score = float(silhouette_score(reduced[indices], labels[indices]))
+                    if cache_distances:
+                        if distance_indices is None or not np.array_equal(indices, distance_indices):
+                            distances = None  # Release the previous subset before allocating.
+                            distances = pairwise_distances(reduced[indices], metric="euclidean", n_jobs=1)
+                            np.fill_diagonal(distances, 0.)
+                            distance_indices = indices.copy()
+                        score = float(silhouette_score(distances, labels[indices], metric="precomputed"))
+                    else:
+                        score = float(silhouette_score(reduced[indices], labels[indices]))
                 candidate = dict(eps=float(eps), min_samples=int(min_samples), clusters=count,
                                  noise_percentage=100*noise, silhouette=score,
                                  silhouette_records=len(indices))
@@ -65,7 +102,8 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
         else:
             labels = best_labels
             status = "selected"
-        projection = PCA(n_components=min(3, n-1, dim), svd_solver="full").fit_transform(x)
+        neighborhoods_cached = neighborhoods is not None
+        del search_input, neighborhoods, distances
     projection = np.pad(projection, ((0, 0), (0, 3-projection.shape[1])))
     terms = {int(cid): [] for cid in set(labels)}
     try:
@@ -105,11 +143,14 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
                           normalized_mutual_information=float(normalized_mutual_info_score(truth, labels)),
                           includes_noise=True, labels_used_for_selection=False)
     return base(data, "cluster", op_id, {**params, "algorithm": "dbscan_search", "effective_pca_components": effective_components,
-                "normalization": "L2 before PCA and after PCA", "metric": "euclidean", "best_parameters": best},
+                "normalization": "L2 before PCA and after PCA", "metric": "euclidean", "best_parameters": best,
+                "distance_cache": "silhouette_subset" if cache_distances else "disabled_memory_budget",
+                "neighborhood_cache": "radius_graph" if neighborhoods_cached else "disabled_memory_budget",
+                "numeric_threads": numeric_threads()},
                 dict(status=status, parameter_search=search, groups=groups,
                      cluster_sizes=dict(Counter(map(str, labels))), noise_count=int(np.sum(labels == -1)),
                      noise_percentage=100*float(np.mean(labels == -1)), evaluation=evaluation,
-                     explained_variance=float(pca.explained_variance_ratio_.sum()), vocabulary_status=vocabulary_status,
+                     explained_variance=float(pca.explained_variance_ratio_[:effective_components].sum()), vocabulary_status=vocabulary_status,
                      selection_rule="Highest non-noise sampled silhouette with >=2 clusters and noise below threshold; first grid entry breaks ties",
                      caveat="3D PCA is a visualization, not the clustering space. Noise -1 is not an intent. If no candidate qualifies, all rows are marked unassigned (-1)."),
                 rows, examples, run_id)

@@ -84,6 +84,7 @@ class Operation(Contract):
 class Execution(Contract):
     mode: Literal["async", "sync"] = "async"
     backend: Literal["auto", "local"] = "auto"
+    use_cache: bool = True
 
 class Result(Contract):
     result_id: str

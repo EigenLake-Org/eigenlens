@@ -112,3 +112,83 @@ def test_old_source_dataset_rejected_before_enqueue(service):
         service.run_analysis("local", ds, [{"id":"groups", "type":"cluster"}])
     with service.store.connect() as db:
         assert db.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_completed_cache_reuses_identical_snapshot_with_new_dataset_id(service):
+    rows=[r.model_dump() for r in tickets()]
+    ops=[{'id':'groups','type':'cluster','parameters':{'eps_values':[.3,.5]}}]
+    first_ds=service.register_records('local',records=rows)
+    first=wait(service,service.run_analysis('local',first_ds['dataset_id'],ops)['job_id'])
+    assert first['status']=='succeeded' and not first['cache_hit']
+    second_ds=service.register_records('local',records=rows)
+    assert second_ds['dataset_id']!=first_ds['dataset_id']
+    cached=service.run_analysis('local',second_ds['dataset_id'],ops,idempotency_key='cached-retry')
+    assert cached['status']=='succeeded' and cached['cache_hit']
+    assert cached['cached_from_job']==first['job_id']
+    assert cached['results']==first['results'] and cached['job_id']!=first['job_id']
+    assert cached['job_id'] not in service.supervisor.running
+    assert service.run_analysis('local',second_ds['dataset_id'],ops,idempotency_key='cached-retry')['job_id']==cached['job_id']
+    with pytest.raises(VTError,match='different request'):
+        service.run_analysis('local',first_ds['dataset_id'],ops,idempotency_key='cached-retry')
+    forced=service.run_analysis('local',second_ds['dataset_id'],ops,execution={'use_cache':False})
+    assert not forced['cache_hit']
+    service.cancel_job('local',forced['job_id'])
+    # Identical content owned by another caller must not access the first result.
+    service.config.callers['other']={}
+    other=service.register_records('other',records=rows)
+    isolated=service.run_analysis('other',other['dataset_id'],ops)
+    assert not isolated['cache_hit']
+    service.cancel_job('other',isolated['job_id'])
+    # Changing selection scope must not reuse a retrieval-results result.
+    full=service.register_records('local',records=rows,selection_scope='complete_selection')
+    miss=service.run_analysis('local',full['dataset_id'],ops)
+    assert not miss['cache_hit']
+    service.cancel_job('local',miss['job_id'])
+    # Missing files cannot produce a successful cache response.
+    with service.store.connect() as db:
+        filename=db.execute('SELECT path FROM objects WHERE id=?',(first['results']['groups'],)).fetchone()[0]
+    (service.config.root/'artifacts'/filename).unlink()
+    miss=service.run_analysis('local',second_ds['dataset_id'],ops)
+    assert not miss['cache_hit']
+    service.cancel_job('local',miss['job_id'])
+
+
+def test_analysis_cache_identity_covers_content_plan_limits_and_engine(service,monkeypatch):
+    import copy
+    import vector_tools.cache as cache
+    ds=service.register_records('local',records=[r.model_dump() for r in tickets()])
+    data=service.store.get('local',ds['dataset_id'],'ds')
+    ops=[{'id':'groups','type':'cluster'}]
+    key=cache.analysis_key(data,ops,{'backend':'auto'},service.config)
+    for field,value in [('text','changed text'),('vector',[1.,2.]),('metadata',{'changed':True})]:
+        changed=copy.deepcopy(data);changed['records'][0][field]=value
+        assert cache.analysis_key(changed,ops,{'backend':'auto'},service.config)!=key
+    changed=copy.deepcopy(data);changed['source']={'collection':'different'}
+    assert cache.analysis_key(changed,ops,{'backend':'auto'},service.config)!=key
+    assert cache.analysis_key(data,[{'id':'groups','type':'cluster','parameters':{'eps_values':[.2]}}],{'backend':'auto'},service.config)!=key
+    service.config.numeric_threads=2
+    assert cache.analysis_key(data,ops,{'backend':'auto'},service.config)!=key
+    service.config.numeric_threads=1
+    service.config.limits.max_clusters+=1
+    assert cache.analysis_key(data,ops,{'backend':'auto'},service.config)!=key
+    service.config.limits.max_clusters-=1
+    monkeypatch.setattr(cache,'engine_identity',lambda:{'code':'new implementation'})
+    assert cache.analysis_key(data,ops,{'backend':'auto'},service.config)!=key
+
+
+def test_completed_cache_survives_restart(tmp_path,monkeypatch):
+    monkeypatch.setenv('VECTOR_ML_DATA',str(tmp_path))
+    rows=[r.model_dump() for r in tickets()]
+    ops=[{'id':'groups','type':'cluster','parameters':{'eps_values':[.3]}}]
+    service=Service()
+    try:
+        ds=service.register_records('local',records=rows)
+        first=wait(service,service.run_analysis('local',ds['dataset_id'],ops)['job_id'])
+        assert first['status']=='succeeded'
+    finally:service.close()
+    restarted=Service()
+    try:
+        ds=restarted.register_records('local',records=rows)
+        cached=restarted.run_analysis('local',ds['dataset_id'],ops)
+        assert cached['cache_hit'] and cached['cached_from_job']==first['job_id']
+    finally:restarted.close()

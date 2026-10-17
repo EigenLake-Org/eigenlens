@@ -27,6 +27,11 @@ class Store:
                     updated_at TEXT NOT NULL, idempotency_key TEXT, request_hash TEXT,
                     UNIQUE(owner,idempotency_key));
             ''')
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(jobs)')}
+            for name in ('cache_key', 'cached_from_job'):
+                if name not in columns:
+                    db.execute(f'ALTER TABLE jobs ADD COLUMN {name} TEXT')
+            db.execute('CREATE INDEX IF NOT EXISTS jobs_completed_cache ON jobs(owner,cache_key,status)')
     @contextmanager
     def connect(self):
         db = sqlite3.connect(self.root / "metadata.sqlite", timeout=30)
