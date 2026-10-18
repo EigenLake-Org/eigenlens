@@ -104,6 +104,18 @@ The agent registers your input to obtain a dataset ID, starts a job, polls its s
 
 Plotting requires a chat client or agent with chart/file rendering tools. MCP returns coordinates and assignments; the BANKING77 Python example also creates a standalone HTML plot.
 
+## Use with the OpenAI Agents SDK
+
+Add EigenLens to an existing Python agent through `MCPServerStreamableHttp` and `agent.mcp_servers`. Your existing tools, such as a weather tool, stay on the same agent. The agent discovers EigenLens tools and invokes them through the SDK; DBSCAN and BERTopic run on the EigenLens worker.
+
+```bash
+pip install 'openai-agents==0.22.2'
+export EIGENLENS_MCP_URL=http://127.0.0.1:8020/mcp
+# Supply OPENAI_API_KEY and the worker's EIGENLENS_MCP_TOKEN privately.
+```
+
+No EigenLens installation or repository clone is needed in the agent application when connecting to an existing HTTP worker. See the **[OpenAI Agents SDK guide](docs/openai-agents.md)** for a complete Python example, database connection setup, adding MCP to your existing agent, and polling job status with detailed stages.
+
 ## Connect your vector database
 
 Database connections are managed by this MCP server through read-only adapters. Configure a default on the server, or have your application's connection form call `connect_database` with `db_type`, URL, API key and optional field/model mappings. It returns a caller-owned `connection_id`; your chat keeps that ID and its selected collection. Supply secrets through configuration or the connection form.
@@ -273,6 +285,7 @@ This starts a local MCP server, discovers its tools, analyzes **62 synthetic rec
 
 - [Docker worker setup and concurrency](docs/worker.md)
 - [MCP connection, chat prompts and exact tool calls](docs/mcp.md)
+- [OpenAI Agents SDK: existing agents, database setup and job progress](docs/openai-agents.md)
 - [Database connections, storage and adapters](docs/databases.md)
 - [Record, analysis and upload contracts](docs/contracts.md)
 - [Architecture](docs/architecture.md)

@@ -4,6 +4,8 @@ Connect an MCP-capable chat agent to this server, then retrieve or supply record
 
 ## Connection options
 
+For Python agents, see the [OpenAI Agents SDK guide](openai-agents.md). It connects to the same tools through Streamable HTTP or stdio and shows how application code polls background jobs.
+
 ### Local stdio
 
 Follow the [README pip installation and Codex registration](../README.md#installation). The chat host launches the server and manages its stdin/stdout connection. Configure other local hosts with:
