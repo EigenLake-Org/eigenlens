@@ -5,14 +5,14 @@ import os
 import socket
 import threading
 import time
-from .artifacts import Store
+from .artifacts import Store, now
 from .config import Config
 from .datasets import Dataset
 from .schemas import Selection, VTError
 from .records import InMemory
 from .backends import LocalBackend
 from .registry import REGISTRY, plan
-from .execution_context import numeric_budget
+from .execution_context import numeric_budget, progress_reporter, report_stage
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
 
@@ -30,19 +30,25 @@ def worker(root, config_path, job_id, owner):
         config = Config(config_path)
         job = store.job(owner, job_id)
         payload = job["payload"]
+        store.update_job(job_id, "running")
+        store.update_stage(job_id, {"stage": "loading_records", "message": "Loading registered records and validating the operation plan"})
         spec = store.get(owner, payload["dataset_id"], "ds")
         ordered = plan(payload["operations"], payload["execution"]["backend"], config.limits)
-        store.update_job(job_id, "running")
         if "records" not in spec:
             raise VTError("Only registered record datasets are supported; use register_records")
         source = InMemory(spec["records"], name=spec.get("name", "registered"))
         source.identity.update(spec.get("source", {}))
+        store.update_stage(job_id, {"stage": "materializing", "message": "Validating and materializing the selected records",
+                                   "input_records": len(spec['records'])})
         data = Dataset(source, Selection.model_validate(spec["selection"]), config.limits).materialize(
             fields={"metadata", "text"} | set().union(*(REGISTRY[o.type]["fields"] for o in ordered)))
         # All operations share this one execution-time materialization.
+        store.update_stage(job_id, {"stage": "saving_input", "message": "Saving the shared materialized input",
+                                   "selected_records": len(data.records)})
         stage_id = store.put(owner, "data", data.serializable())
-        with numeric_budget(config.numeric_threads):
+        with numeric_budget(config.numeric_threads), progress_reporter(lambda info: store.update_stage(job_id, info)):
             results = LocalBackend().execute(data, ordered, run_id=job_id)
+            report_stage('saving_results', 'Saving analysis results', completed=0, total=len(results), unit='artifacts')
         refs = {}
         for op_id, result in results.items():
             result.summary_data["materialized_artifact_id"] = stage_id
@@ -50,6 +56,8 @@ def worker(root, config_path, job_id, owner):
             result.summary_data["worker_pid"] = os.getpid()
             store.put(owner, "res", result.model_dump(), result.result_id)
             refs[op_id] = result.result_id
+            store.update_stage(job_id, {"stage": "saving_results", "message": "Saving analysis results",
+                                       "completed": len(refs), "total": len(results), "unit": "artifacts"})
         store.update_job(job_id, "succeeded", refs)
     except BaseException as exc:
         # Internal exceptions may contain private records; only controlled errors are exposed.
@@ -70,7 +78,7 @@ class Supervisor:
             self.lockfile.close()
             raise VTError("A supervisor already owns this data directory; use one service replica") from exc
         with self.store.connect() as db:
-            db.execute("UPDATE jobs SET status='failed', error='Service interrupted before completion' WHERE status IN ('queued','running')")
+            db.execute("UPDATE jobs SET status='failed', error='Service interrupted before completion',updated_at=? WHERE status IN ('queued','running')", (now(),))
         self.running = {}
         self.mutex = threading.RLock()
         self.stopped = threading.Event()
@@ -124,5 +132,5 @@ class Supervisor:
             for job_id, (_, _, owner) in list(self.running.items()):
                 self.cancel(owner, job_id)
             with self.store.connect() as db:
-                db.execute("UPDATE jobs SET status='failed',error='Service shutdown before execution' WHERE status='queued'")
+                db.execute("UPDATE jobs SET status='failed',error='Service shutdown before execution',updated_at=? WHERE status='queued'", (now(),))
         fcntl.flock(self.lockfile, fcntl.LOCK_UN); self.lockfile.close()

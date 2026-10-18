@@ -29,7 +29,8 @@ class Service:
         return {"schema_version": "1.0",
                 "operations": {k: {"algorithm": v["algorithm"], "parameters": sorted(v["params"]), "required_fields": sorted(v["fields"]), "algorithms": {a: sorted(p) for a,p in v.get("algorithms", {v["algorithm"]: v["params"]}).items()}} for k,v in REGISTRY.items()},
                 "backends": [LocalBackend().capabilities()], "limits": self.config.limits.model_dump(),
-                "execution": {"numeric_threads_per_job": self.config.numeric_threads, "completed_result_cache": True},
+                "execution": {"numeric_threads_per_job": self.config.numeric_threads, "completed_result_cache": True,
+                              "detailed_job_stages": True},
                 "databases": database_capabilities()}
     def register_records(self, owner, records=None, artifact_name=None, selection_scope="retrieval_results"):
         if owner not in self.config.callers:
@@ -127,12 +128,22 @@ class Service:
                 if count >= self.config.limits.max_pending_jobs:
                     raise VTError("Job queue is full; retry later with the same idempotency key")
                 id = "job_" + uuid.uuid4().hex
-                db.execute("INSERT INTO jobs(id,owner,status,payload,created_at,updated_at,idempotency_key,request_hash,cache_key) VALUES(?,?,?,?,?,?,?,?,?)", (id, owner, "queued", canonical(payload), now(), now(), idempotency_key, digest, cache_key))
+                timestamp = now()
+                info = {"stage": "queued", "message": "Waiting for an available worker", "updated_at": timestamp}
+                db.execute("INSERT INTO jobs(id,owner,status,payload,created_at,updated_at,idempotency_key,request_hash,cache_key,info) VALUES(?,?,?,?,?,?,?,?,?,?)", (id, owner, "queued", canonical(payload), timestamp, timestamp, idempotency_key, digest, cache_key, canonical(info)))
         return self.get_job(owner, id)
     def get_job(self, owner, job_id):
         job = self.store.job(owner, job_id)
+        info = job['info'] or {"stage": job['status'], "message": {
+            'queued': 'Waiting for an available worker', 'running': 'Worker is executing the analysis',
+            'succeeded': 'Analysis results saved', 'failed': 'Analysis failed',
+            'cancelled': 'Analysis cancelled'}[job['status']], "updated_at": job['updated_at']}
+        if job['cached_from_job']:
+            info = {"stage": "reusing_results", "message": "Reusing completed results for identical records and settings",
+                    "updated_at": job['updated_at']}
         return {"job_id": job_id, **{k:job[k] for k in ["status", "results", "error", "created_at", "updated_at"]},
                 "backend": "local", "cache_hit": bool(job['cached_from_job']), "cached_from_job": job['cached_from_job'],
+                "info": info,
                 "progress": {"phase": job["status"], "fraction": 1 if job["status"] == "succeeded" else None}}
     def cancel_job(self, owner, job_id):
         self.supervisor.cancel(owner, job_id)

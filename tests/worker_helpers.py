@@ -20,3 +20,19 @@ def wait_started(root, job_id):
     while not (Path(root) / f"started-{job_id}").exists():
         assert time.monotonic() < deadline, "Worker did not start"
         time.sleep(.02)
+
+
+def paused_pca_worker(root, config_path, job_id, owner):
+    """Persist a real algorithm stage before pausing, rather than inventing progress."""
+    original = Store.update_stage
+    def update_stage(store, id, info):
+        original(store, id, info)
+        if info['stage'] == 'pca':
+            (Path(root) / f'started-{job_id}').touch()
+            deadline = time.monotonic() + 45
+            while not (Path(root) / 'release').exists():
+                if time.monotonic() > deadline:
+                    raise TimeoutError('Test did not release PCA')
+                time.sleep(.01)
+    Store.update_stage = update_stage
+    worker(root, config_path, job_id, owner)

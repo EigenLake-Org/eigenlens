@@ -149,7 +149,34 @@ You can omit custom clustering parameters and use the search defaults. See [anal
 {"name": "get_job", "arguments": {"job_id": "job_example"}}
 ```
 
-Returns current status and progress. On success, `results` maps operation IDs to result IDs, for example:
+Returns the existing `status` (`queued`, `running`, `succeeded`, `failed`, `cancelled`) plus detailed `info`:
+
+```json
+{
+  "job_id": "job_example",
+  "status": "running",
+  "progress": {"phase": "running", "fraction": null},
+  "info": {
+    "stage": "dbscan_search",
+    "message": "Evaluating DBSCAN parameters and silhouette scores",
+    "operation_id": "groups",
+    "operation_index": 1,
+    "operation_count": 2,
+    "completed": 12,
+    "total": 42,
+    "unit": "trials",
+    "eps": 0.5,
+    "min_samples": 5,
+    "updated_at": "2026-10-18T10:30:00+00:00"
+  }
+}
+```
+
+Stages cover loading/materializing records, normalization, PCA, neighbor graph construction, DBSCAN parameter search, cluster summaries, BERTopic loading/extraction, topic summaries, and saving results. `info` is the latest persisted stage, not an event log; short stages may finish between polls. Counters appear only when measurable and describe that stage, not overall percentage or remaining time. `operation_index` is one-based. Additional numeric details vary by stage.
+
+Poll `get_job` in application code (for example, once per second) and display `info.message` plus any counters. Keep using `status` to decide when to stop polling. A failed/cancelled job retains its last stage and has a separate `error`; a successful job reports `completed`. Cache hits report `reusing_results` with `status: "succeeded"` and `cache_hit: true`, without running worker stages. Existing jobs without detailed information return a status-based message. Stages are stored alongside job metadata and remain owner-scoped.
+
+On success, `results` maps operation IDs to result IDs, for example:
 
 ```json
 {"groups": "res_groups_example", "themes": "res_themes_example"}

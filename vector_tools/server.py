@@ -71,7 +71,7 @@ def build_server(service, host="127.0.0.1", port=8000):
         return await invoke("run_analysis", dataset_id, [o.model_dump() for o in operations], execution.model_dump() if execution else None, idempotency_key)
     @server.tool()
     async def get_job(job_id: str) -> dict:
-        """Inspect job phase, terminal error, or mapping from operation IDs to result handles. Let application code poll long jobs."""
+        """Inspect job status plus info (current stage, message, operation and measurable stage counters), terminal error, or result handles. Status remains queued/running/succeeded/failed/cancelled; failed/cancelled jobs retain their last stage. Let application code poll long jobs."""
         return await invoke("get_job", job_id)
     @server.tool()
     async def cancel_job(job_id: str) -> dict:

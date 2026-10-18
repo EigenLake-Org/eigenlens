@@ -194,7 +194,7 @@ These are tool calls made by your agent, not terminal commands. Optional argumen
 | `disconnect_database` | `connection_id` | Removes the saved connection; existing datasets/results remain |
 | `register_records` | `records` **or** `artifact_name`; `selection_scope?` | `dataset_id` and registered count |
 | `run_analysis` | `dataset_id`, `operations`; `execution?`, `idempotency_key?` | Background job with `job_id` |
-| `get_job` | `job_id` | Status/progress; result IDs on success or an error on failure |
+| `get_job` | `job_id` | Status plus stage details/counters in `info`; result IDs on success or an error on failure |
 | `cancel_job` | `job_id` | Actual job outcome after cancellation |
 | `get_summary` | `result_id` | Compact counts, parameters, scope and provenance |
 | `get_examples` | `result_id`; `cluster_id?`, `limit?` (default 5, range 1–100) | Representative record IDs and text excerpts |
@@ -218,7 +218,9 @@ Clustering runs through `run_analysis`. Replace the dataset ID with the one retu
 }
 ```
 
-Poll `get_job` using the returned `job_id`. On success, use `results.groups` as the result ID for summaries, examples and pages. Add a `topics` operation referencing `groups` to include BERTopic; the [complete plan](docs/mcp.md#3-run_analysis) shows that call.
+Poll `get_job` using the returned `job_id`. Keep using `status` for the job outcome; display `info.message` for the current stage (PCA, DBSCAN search, BERTopic, saving results) and `info.completed` / `info.total` when available. These counters describe the current stage, not an overall completion percentage. See the [detailed response](docs/mcp.md#4-get_job).
+
+On success, use `results.groups` as the result ID for summaries, examples and pages. Add a `topics` operation referencing `groups` to include BERTopic; the [complete plan](docs/mcp.md#3-run_analysis) shows that call.
 
 ## Try the BANKING77 demo
 

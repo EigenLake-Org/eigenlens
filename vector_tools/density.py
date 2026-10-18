@@ -12,7 +12,7 @@ from sklearn.preprocessing import normalize
 from threadpoolctl import threadpool_limits
 from .operators import base, example, matrix
 from .schemas import Parameters, VTError
-from .execution_context import numeric_threads
+from .execution_context import numeric_threads, report_stage
 
 
 def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
@@ -27,6 +27,7 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
     Parameters(**params)  # SDK calls get the same validation as MCP calls.
     if len(eps_values) * len(min_samples_values) > 64:
         raise VTError("DBSCAN search is limited to 64 parameter combinations")
+    report_stage('validating_vectors', 'Validating vectors and checking the memory budget', selected_records=len(data.records))
     x = matrix(data)
     n, dim = x.shape
     if n < 3 or np.any(np.linalg.norm(x, axis=1) == 0):
@@ -40,10 +41,13 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
     cache_distances = reserve + sample_bytes <= data.limits.max_working_bytes
     graph_budget = data.limits.max_working_bytes - reserve - (sample_bytes if cache_distances else 0)
     with threadpool_limits(limits=numeric_threads()):
+        report_stage('normalizing_vectors', 'Normalizing vectors before PCA', records=n, dimensions=dim)
         x = normalize(x)
         if not np.any(np.var(x, axis=0) > 0):
             raise VTError("DBSCAN requires variation between normalized vectors")
         effective_components = min(pca_components, n-1, dim)
+        report_stage('pca', 'Reducing vector dimensions with PCA', records=n, input_dimensions=dim,
+                     clustering_dimensions=effective_components)
         pca = PCA(n_components=max(effective_components, min(3, n-1, dim)), random_state=random_state, svd_solver="full")
         scores = pca.fit_transform(x)
         reduced = normalize(scores[:, :effective_components])
@@ -51,6 +55,7 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
         neighborhoods = None
         chunk_rows = min(128, graph_budget // (n*48))
         if chunk_rows:
+            report_stage('neighbor_graph', 'Building reusable DBSCAN neighborhoods', completed=0, total=n, unit='records')
             neighbors = NearestNeighbors(metric="euclidean", algorithm="brute", n_jobs=1).fit(reduced)
             parts, edges = [], 0
             for start in range(0, n, chunk_rows):
@@ -61,14 +66,21 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
                 if edges*48 + (n+1)*16 > graph_budget:
                     break
                 parts.append(part)
+                report_stage('neighbor_graph', 'Building reusable DBSCAN neighborhoods',
+                             completed=min(start+chunk_rows, n), total=n, unit='records')
             else:
                 neighborhoods = vstack(parts, format="csr")
             del parts, part, neighbors
         distances, distance_indices = None, None
         search_input = neighborhoods if neighborhoods is not None else reduced
         search, best, best_labels = [], None, None
+        trials = len(eps_values) * len(min_samples_values)
         for eps in eps_values:
             for min_samples in min_samples_values:
+                report_stage('dbscan_search', 'Evaluating DBSCAN parameters and silhouette scores',
+                             completed=len(search), total=trials, unit='trials',
+                             eps=float(eps), min_samples=int(min_samples),
+                             neighborhood_cache=neighborhoods is not None)
                 labels = DBSCAN(eps=eps, min_samples=min_samples,
                     metric="precomputed" if neighborhoods is not None else "euclidean", n_jobs=1).fit_predict(search_input)
                 count = len(set(labels) - {-1})
@@ -95,6 +107,7 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
                 if (2 <= count <= data.limits.max_clusters and noise < max_noise_ratio
                         and score is not None and (best is None or score > best["silhouette"])):
                     best, best_labels = candidate, labels.copy()
+        report_stage('dbscan_search', 'Finished evaluating DBSCAN parameters', completed=len(search), total=trials, unit='trials')
         if best is None:
             # Preserve search diagnostics; do not silently choose an invalid candidate.
             labels = np.full(n, -1, dtype=int)
@@ -104,6 +117,8 @@ def dbscan_search(data, op_id="clusters", run_id=None, pca_components=50,
             status = "selected"
         neighborhoods_cached = neighborhoods is not None
         del search_input, neighborhoods, distances
+    report_stage('summarizing_clusters', 'Collecting cluster terms, representative examples and plot coordinates',
+                 records=n, clusters=len(set(labels) - {-1}))
     projection = np.pad(projection, ((0, 0), (0, 3-projection.shape[1])))
     terms = {int(cid): [] for cid in set(labels)}
     try:

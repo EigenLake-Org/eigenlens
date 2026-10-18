@@ -38,12 +38,14 @@ async def test_native_stdio_clustering(tmp_path):
             assert caps["limits"]["max_jobs"] == 1
             ds = await call("register_records", {"records":[r.model_dump() for r in fixture_data().records]})
             job = await call("run_analysis", {"dataset_id":ds["dataset_id"], "operations":OPS})
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + 90  # Includes cold BERTopic imports in a spawned worker.
             while job["status"] not in {"succeeded", "failed", "cancelled"}:
-                assert time.monotonic() < deadline
+                assert time.monotonic() < deadline, job
                 await asyncio.sleep(.05)
                 job = await call("get_job", {"job_id":job["job_id"]})
             assert job["status"] == "succeeded", job
+            assert job['info']['stage']=='completed'
+            assert job['progress']=={'phase':'succeeded','fraction':1}
             summary = await call("get_summary", {"result_id":job["results"]["groups"]})
             assert summary["scope"] == "retrieval_results" and summary["processed"] == 33
             assert summary["summary_data"]["noise_count"] == 1
@@ -91,12 +93,13 @@ def test_authenticated_http_mcp_without_tcp(tmp_path, monkeypatch):
                 return result.get("structuredContent") or json.loads(result["content"][0]["text"])
             ds = call("register_records", {"records":[r.model_dump() for r in fixture_data().records], "selection_scope":"complete_selection"})
             job = call("run_analysis", {"dataset_id":ds["dataset_id"], "operations":OPS})
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + 90
             while job["status"] not in {"succeeded", "failed", "cancelled"}:
-                assert time.monotonic() < deadline
+                assert time.monotonic() < deadline, job
                 time.sleep(.05)
                 job = call("get_job", {"job_id":job["job_id"]})
             assert job["status"] == "succeeded", job
+            assert job['info']['stage']=='completed'
             summary = call("get_summary", {"result_id":job["results"]["groups"]})
             assert summary["processed"] == 33 and summary["scope"] == "complete_selection"
             assert client.post("/mcp", json={"jsonrpc":"2.0", "id":1, "method":"tools/list"}).status_code == 401

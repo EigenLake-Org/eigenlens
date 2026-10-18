@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from threadpoolctl import threadpool_limits
 from .schemas import Result, VTError
+from .execution_context import report_stage
 
 def versions():
     return {"vector-tools": "0.1.0", "numpy": version("numpy"), "scikit-learn": version("scikit-learn")}
@@ -70,6 +71,7 @@ def topics(data, clusters, representation="bertopic", op_id="topics", run_id=Non
     mapping = validate_clusters(data, clusters)
     ids = sorted(set(mapping.values()))
     empty = sum(not (r.text or "").strip() for r in data.records)
+    report_stage('loading_bertopic', 'Loading BERTopic and preparing topic extraction', records=len(data.records))
     from bertopic import BERTopic
     from bertopic.backend import BaseEmbedder
     from bertopic.cluster import BaseCluster
@@ -104,8 +106,11 @@ def topics(data, clusters, representation="bertopic", op_id="topics", run_id=Non
     documents = [(r.text or "") + " " + boundary for r in data.records]
     topic_ids = {}
     try:
+        report_stage('bertopic', 'Extracting topic phrases with BERTopic c-TF-IDF from existing clusters',
+                     records=len(data.records), groups=len(ids))
         with threadpool_limits(limits=1):
             assigned, _ = model.fit_transform(documents, embeddings=matrix(data), y=labels)
+        report_stage('summarizing_topics', 'Mapping topic phrases back to the original clusters', groups=len(ids))
         # BERTopic renumbers topics by size; export against the original DBSCAN IDs.
         for cid, topic_id in zip(labels, assigned):
             if cid in topic_ids and topic_ids[cid] != int(topic_id):

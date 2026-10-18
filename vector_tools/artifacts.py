@@ -31,6 +31,8 @@ class Store:
             for name in ('cache_key', 'cached_from_job'):
                 if name not in columns:
                     db.execute(f'ALTER TABLE jobs ADD COLUMN {name} TEXT')
+            if 'info' not in columns:
+                db.execute("ALTER TABLE jobs ADD COLUMN info TEXT NOT NULL DEFAULT '{}'")
             db.execute('CREATE INDEX IF NOT EXISTS jobs_completed_cache ON jobs(owner,cache_key,status)')
     @contextmanager
     def connect(self):
@@ -68,7 +70,24 @@ class Store:
         row = dict(row)
         row["payload"] = json.loads(row["payload"])
         row["results"] = json.loads(row["results"])
+        row["info"] = json.loads(row["info"])
         return row
+    def update_stage(self, id, info):
+        timestamp = now()
+        with self.connect() as db:
+            # A late worker callback must never replace a terminal job's last stage.
+            db.execute("UPDATE jobs SET info=?,updated_at=? WHERE id=? AND status='running'",
+                       (canonical({**info, "updated_at": timestamp}), timestamp, id))
     def update_job(self, id, status, results=None, error=None):
         with self.connect() as db:
-            db.execute("UPDATE jobs SET status=?,results=?,error=?,updated_at=? WHERE id=?", (status, canonical(results or {}), error, now(), id))
+            db.execute('BEGIN IMMEDIATE')
+            timestamp = now()
+            row = db.execute("SELECT info,status FROM jobs WHERE id=?", (id,)).fetchone()
+            if row is None or row['status'] in {'succeeded', 'failed', 'cancelled'}:
+                return
+            info = json.loads(row['info'])
+            if status == 'succeeded':
+                info = {"stage": "completed", "message": "Analysis results saved", "updated_at": timestamp}
+            # Failure/cancellation retains the last actual stage and counters.
+            db.execute("UPDATE jobs SET status=?,results=?,error=?,updated_at=?,info=? WHERE id=?",
+                       (status, canonical(results or {}), error, timestamp, canonical(info), id))

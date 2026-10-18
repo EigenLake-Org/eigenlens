@@ -2,6 +2,7 @@
 import uuid
 from .registry import plan, REGISTRY
 from . import operators
+from .execution_context import operation_progress, report_stage
 
 class LocalBackend:
     def capabilities(self):
@@ -14,7 +15,7 @@ class LocalBackend:
             raise VTError("Empty selection: no records to analyze")
         run_id = run_id or "run_" + uuid.uuid4().hex
         results = {}
-        for op in ordered:
+        for index, op in enumerate(ordered, 1):
             kwargs = {"op_id": op.id, "run_id": run_id, **op.parameters.supplied()}
             if op.type == "cluster":
                 kwargs["algorithm"] = op.algorithm or "dbscan_search"
@@ -22,5 +23,7 @@ class LocalBackend:
                 kwargs["representation"] = op.representation
             if op.clusters_from:
                 kwargs["clusters"] = results[op.clusters_from]
-            results[op.id] = getattr(operators, op.type)(data, **kwargs)
+            with operation_progress(op.id, index, len(ordered)):
+                report_stage('starting_operation', f'Starting {op.type} operation')
+                results[op.id] = getattr(operators, op.type)(data, **kwargs)
         return results
