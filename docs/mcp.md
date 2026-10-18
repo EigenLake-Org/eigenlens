@@ -17,7 +17,7 @@ Use one server per data directory. The default configuration has a 10,000-record
 
 ### Shared Docker HTTP server
 
-Start the [Docker worker](worker.md#docker). Its MCP endpoint is `http://127.0.0.1:8020/mcp`. Set `EIGENLENS_MCP_TOKEN` in the chat host's environment to the **same token** configured as `VECTOR_CHAT_WORKER_TOKEN` when starting Docker. Then register it in Codex:
+Start the [Docker worker](worker.md#docker). Its MCP endpoint is `http://127.0.0.1:8020/mcp`. Set `EIGENLENS_MCP_TOKEN` in the chat host's environment to the **same token** configured as `EIGENLENS_MCP_TOKEN` when starting Docker. Then register it in Codex:
 
 ```bash
 codex mcp add eigenlens-http \

@@ -5,9 +5,9 @@ The MCP server runs PCA/DBSCAN and BERTopic inside isolated job processes. Calle
 ## Docker
 
 ```bash
-export VECTOR_CHAT_WORKER_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-export VECTOR_CHAT_WORKERS=1
-docker compose --profile chat-worker up -d --build --wait chat-worker
+export EIGENLENS_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export EIGENLENS_WORKERS=1
+docker compose --profile worker up -d --build --wait worker
 ```
 
 These Compose variables and service names remain for deployment compatibility. They select the bearer token and concurrent worker count. The endpoint is `http://127.0.0.1:8020/mcp`. MCP and upload routes require the same token; `/health` is public. Large selections use [streamed JSONL uploads](contracts.md#http-jsonl-upload). Use TLS for remote deployments.
@@ -20,7 +20,7 @@ Query models cache under `/data/models/huggingface` in the data volume, so resta
 
 ## Workers and limits
 
-Default concurrency is **1**, configurable from 1–16 with `VECTOR_CHAT_WORKERS`. Each job is a process in the same worker container. More workers allow concurrent jobs; they do not split one analysis into smaller jobs. Core startup also supports `EIGENLENS_WORKERS` directly.
+Default concurrency is **1**, configurable from 1–16 with `EIGENLENS_WORKERS`. Each job is a process in the same worker container. More workers allow concurrent jobs; they do not split one analysis into smaller jobs. Core startup also supports `EIGENLENS_WORKERS` directly.
 
 Compose divides an 8 GiB working-memory estimate among slots. The container retains two CPUs and an 8 GiB memory limit. Capabilities report per-job limits; `/health` reports worker slots. The worker config allows 20,000 rows, 512 MiB serialized input and 30 minutes per job. Oversized selections fail without silent sampling. Memory estimates do not include every allocation made by imported libraries.
 
@@ -28,10 +28,10 @@ Restart interrupts unfinished jobs. Change worker count after active jobs finish
 
 ## Persistence
 
-The Compose project retains the deployment identifier `vector-ml` and keeps job state and artifacts in `chat-worker-data`; optional Qdrant uses its own `qdrant` volume. The EigenLens worker image is `eigenlens-worker`. Stopping the worker preserves data:
+The `eigenlens` Compose project stores worker artifacts in `worker-data` and Qdrant data in `qdrant`. The worker image is `eigenlens-worker`. Stopping the worker preserves data:
 
 ```bash
-docker compose --profile chat-worker stop chat-worker
+docker compose --profile worker stop worker
 ```
 
 Completed results and encrypted connections remain available after restart. Connection definitions live in `/data/connections.sqlite` and require their original encryption key. Interrupted jobs are marked failed. Use one supervisor per data volume. Automatic retention is not implemented.

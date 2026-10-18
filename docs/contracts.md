@@ -66,6 +66,6 @@ HTTP authentication maps bearer tokens to configured callers. Non-loopback start
 
 ## Limits and persistence
 
-Default SDK/service limits are 10,000 rows, 64 MiB serialized input, 256 MiB estimated working memory, one concurrent job, 32 pending jobs, and a 300-second timeout. `config/chat-worker.json` raises these to 20,000 rows, 512 MiB input, 8 GiB working memory, 16 pending jobs and 1,800 seconds, retaining one concurrent job by default.
+Default SDK/service limits are 10,000 rows, 64 MiB serialized input, 256 MiB estimated working memory, one concurrent job, 32 pending jobs, and a 300-second timeout. `config/worker.json` raises these to 20,000 rows, 512 MiB input, 8 GiB working memory, 16 pending jobs and 1,800 seconds, retaining one concurrent job by default.
 
 `EIGENLENS_WORKERS` supports 1–16 slots. Optional `EIGENLENS_TOTAL_WORKING_BYTES` divides a shared estimate across slots. Compose passes an 8 GiB shared estimate and enforces an 8 GiB container limit. Memory estimates are conservative guards, not exact RSS guarantees; DBSCAN's quadratic worst case can reject large selections. Timeouts and cancellation terminate the process. Two supervisors cannot share a data directory. Restart marks incomplete jobs failed and preserves completed artifacts. No automatic retention policy exists.

@@ -25,11 +25,7 @@ def register_adapter(name, factory):
 
 
 def plugins():
-    entries = {}
-    for group in ('vector_tools.database_adapters', 'eigenlens.database_adapters'):
-        entries.update({entry.name: entry for entry in metadata.entry_points(group=group)})
-    return entries
-
+    return {entry.name: entry for entry in metadata.entry_points(group='eigenlens.database_adapters')}
 
 def capabilities():
     result = {name: {"installed": all(util.find_spec(module) is not None for module in item[2]),

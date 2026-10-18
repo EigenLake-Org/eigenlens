@@ -11,7 +11,7 @@ Cluster existing embeddings and model their topics through Python or an MCP job 
 Requires Python 3.11 or newer. Install the MCP server with pip from this repository's implementation branch:
 
 ```bash
-pip install 'eigenlens[server,qdrant] @ git+https://github.com/EigenLake-Org/eigenlens.git@feature/banking77-dbscan'
+pip install 'eigenlens[server,qdrant] @ git+https://github.com/EigenLake-Org/eigenlens.git@main'
 ```
 
 This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
@@ -134,7 +134,7 @@ codex mcp add eigenlens \
 
 Start a new session and ask: **“Connect to the configured database and list its collections.”** The no-argument default is available to caller `local`. Other authenticated callers supply their own connection settings. For Docker, keep the same settings in a private `.env` file; the worker receives them through Compose. Its local Qdrant URL is `http://qdrant:6333`. See [database setup and exact MCP calls](docs/databases.md).
 
-Saved connections live in `<EIGENLENS_DATA>/connections.sqlite` (Docker: `/data/connections.sqlite` in `chat-worker-data`). URLs, credentials and options are encrypted. Keep `EIGENLENS_CONNECTION_KEY` outside that database and preserve it across restarts. Connections are scoped to the authenticated caller; chats sharing a server caller identity share that caller's access.
+Saved connections live in `<EIGENLENS_DATA>/connections.sqlite` (Docker: `/data/connections.sqlite` in `worker-data`). URLs, credentials and options are encrypted. Keep `EIGENLENS_CONNECTION_KEY` outside that database and preserve it across restarts. Connections are scoped to the authenticated caller; chats sharing a server caller identity share that caller's access.
 
 For Qdrant, users provide:
 
@@ -229,7 +229,7 @@ On success, use `results.groups` as the result ID for summaries, examples and pa
 Clone the repository for its example scripts and Docker configuration, then install the demo dependencies with pip:
 
 ```bash
-git clone --branch feature/banking77-dbscan https://github.com/EigenLake-Org/eigenlens.git
+git clone --branch main https://github.com/EigenLake-Org/eigenlens.git
 cd eigenlens
 pip install -c requirements-tested.txt '.[server,banking]'
 docker compose --profile qdrant up -d --wait qdrant
@@ -278,11 +278,3 @@ This starts a local MCP server, discovers its tools, analyzes **62 synthetic rec
 - [Architecture](docs/architecture.md)
 
 For development: `pip install -e '.[server,banking,databases,test]'` then `pytest -q`.
-
-## Migrating from Vector Tools
-
-The project is now **EigenLens**: install `eigenlens`, use `import eigenlens`, and start the MCP server with `eigenlens`. The GitHub repository is `EigenLake-Org/eigenlens`; update an existing checkout with `git remote set-url origin https://github.com/EigenLake-Org/eigenlens.git`.
-
-Existing `import vector_tools` code, module imports, the `vector-ml` command and `python -m vector_tools.server` remain compatibility aliases. New configuration uses `EIGENLENS_*`; previous `VECTOR_ML_*` variables remain supported, with the new names taking precedence. Both adapter entry-point groups are supported; new plugins should use `eigenlens.database_adapters`.
-
-New local storage defaults to `.eigenlens`. An existing `.vector-ml` directory is reused when no explicit data environment variable is supplied and the corresponding new directory does not exist. To keep an existing explicit storage location, set `EIGENLENS_DATA` to that location. Keep the original connection encryption key. Existing Compose project/network/volume identifiers remain `vector-ml` / `vector-ml_default` so upgrades retain stored jobs, connections, Qdrant data and artifacts. Historical result files keep their original provenance.

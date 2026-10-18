@@ -28,7 +28,7 @@ def test_invalid_worker_count_is_rejected(monkeypatch,value):
 def test_configured_default_is_preserved(monkeypatch):
     monkeypatch.delenv('EIGENLENS_WORKERS',raising=False)
     monkeypatch.delenv('EIGENLENS_TOTAL_WORKING_BYTES',raising=False)
-    assert Config('config/chat-worker.json').limits.max_jobs==1
+    assert Config('config/worker.json').limits.max_jobs==1
 
 
 @pytest.mark.parametrize('workers,threads',[(1,2),(2,1),(4,1)])

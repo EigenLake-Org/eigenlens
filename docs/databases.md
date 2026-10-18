@@ -98,7 +98,7 @@ Put that value in `EIGENLENS_CONNECTION_KEY`. Generate it once for a data direct
 
 Saved definitions are in `<EIGENLENS_DATA>/connections.sqlite`, mode `0600`. The encrypted payload contains the URL/DSN, API key/password and options. Public metadata holds only the connection ID, caller identity, label, backend type and creation time. `list_connections` returns no URL or credentials. All lookup, list and deletion operations enforce the authenticated caller identity; encrypted definitions also bind their owner.
 
-Docker uses `/data/connections.sqlite` in `chat-worker-data`. Back up that volume and preserve its separate encryption key. Deleting a connection prevents future use of that ID; registered input snapshots and completed analysis artifacts remain available.
+Docker uses `/data/connections.sqlite` in `worker-data`. Back up that volume and preserve its separate encryption key. Deleting a connection prevents future use of that ID; registered input snapshots and completed analysis artifacts remain available.
 
 ### Operator-configured local default
 

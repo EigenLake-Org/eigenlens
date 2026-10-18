@@ -28,11 +28,6 @@ class Config:
             raise VTError("EIGENLENS_CPU_BUDGET must be an integer from 1 to 64")
         self.numeric_threads = max(1, int(budget) // self.limits.max_jobs)
         directory = get_env("EIGENLENS_DATA", self.raw.get("data_dir", ".eigenlens"))
-        # Reuse existing local data unless the caller explicitly selected a directory.
-        if get_env('EIGENLENS_DATA') is None and str(directory).startswith('.eigenlens'):
-            legacy = Path(str(directory).replace('.eigenlens', '.vector-ml', 1))
-            if not Path(directory).exists() and legacy.is_dir():
-                directory = legacy
         self.root = Path(directory).resolve()
         self.callers = self.raw.get("callers", {"local": {}})
         if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", owner) for owner in self.callers):

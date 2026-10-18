@@ -25,8 +25,8 @@ def build_server(service, host="127.0.0.1", port=8000):
                      max_request_body_size=2 * 1024 * 1024,
                      instructions="Inspect capabilities. Connect a supported vector database, list collections and retrieve stored vectors/text to get a dataset_id, or register caller records. If retrieval count is zero, report no records instead of starting analysis. Run async clustering and BERTopic, poll job status, then inspect results and examples. Reuse caller-owned connection IDs. Whole-collection retrieval is complete or fails at limits; semantic retrieval is a bounded top-k selection. Never claim top-k results are every match. Counts are vector records, not deduplicated tickets. Themes are evidence for investigation, not confirmed causes.",
                      transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True,
-                        allowed_hosts=["127.0.0.1:*", "localhost:*", "service:*", "chat-worker:*", "testserver"],
-                        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://service:*", "http://chat-worker:*"]))
+                        allowed_hosts=["127.0.0.1:*", "localhost:*", "service:*", "worker:*", "testserver"],
+                        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://service:*", "http://worker:*"]))
     server._mcp_server.version = "0.1.0"
     async def invoke(method, *args):
         try:

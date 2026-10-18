@@ -229,9 +229,9 @@ def test_real_qdrant_pagination_search_and_analysis(database_service, tmp_path, 
     selected = service.retrieve_records('alice', cid, 'questions', query_vector=fixtures[0].vector, search_limit=9)
     assert selected['count'] == 9 and selected['scope'] == 'retrieval_results'
     job = service.run_analysis('alice', retrieved['dataset_id'], [operation(), {'id':'themes','type':'topics','clusters_from':'groups'}])
-    deadline = time.monotonic() + 40
+    deadline = time.monotonic() + 90  # Includes cold BERTopic imports in the spawned process.
     while job['status'] not in {'succeeded','failed','cancelled'}:
-        assert time.monotonic() < deadline
+        assert time.monotonic() < deadline, job
         time.sleep(.05)
         job = service.get_job('alice', job['job_id'])
     assert job['status'] == 'succeeded', job
