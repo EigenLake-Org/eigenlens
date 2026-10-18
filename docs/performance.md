@@ -12,7 +12,7 @@ One full PCA fit supplies both the requested clustering components and the three
 
 ## Numerical CPU budget
 
-`VECTOR_ML_CPU_BUDGET` sets a server-wide numerical-thread budget (1–64). The Docker Compose worker uses 2, matching its two-CPU container limit. Each job gets `max(1, budget // worker_count)` threads. With one worker that is two threads; with two workers it is one per job. More worker slots increase concurrent jobs; each job still evaluates its grid sequentially. Memory is also divided between worker slots as described in the worker guide.
+`EIGENLENS_CPU_BUDGET` sets a server-wide numerical-thread budget (1–64). The Docker Compose worker uses 2, matching its two-CPU container limit. Each job gets `max(1, budget // worker_count)` threads. With one worker that is two threads; with two workers it is one per job. More worker slots increase concurrent jobs; each job still evaluates its grid sequentially. Memory is also divided between worker slots as described in the worker guide.
 
 The standalone SDK defaults to one numerical thread. `get_capabilities.execution.numeric_threads_per_job` reports the service setting; clustering results record the actual numerical-thread budget. The Docker job continues to execute inside the worker container.
 

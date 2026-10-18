@@ -10,7 +10,10 @@ dist/
 .env.*
 !.env.example
 .DS_Store
-.vector-ml/
+.eigenlens/
 work/
 
 demo-output/
+
+# Existing data directories remain private during migration.
+.vector-ml/

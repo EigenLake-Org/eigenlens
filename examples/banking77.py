@@ -6,8 +6,8 @@ import json
 import os
 from pathlib import Path
 import uuid
-import vector_tools as vt
-from vector_tools.config import Config
+import eigenlens as el
+from eigenlens.config import Config
 from qdrant_client import QdrantClient, models
 
 ARTIFACT = "banking77.jsonl"
@@ -47,7 +47,7 @@ def prepare(args, config):
     with temp.open('w') as f:
         for row, vector in zip(rows, vectors):
             row["vector"] = vector.tolist()
-            f.write(vt.Record.model_validate(row).model_dump_json() + '\n')
+            f.write(el.Record.model_validate(row).model_dump_json() + '\n')
     if temp.stat().st_size > config.limits.max_bytes:
         temp.unlink()
         raise ValueError("Prepared artifact exceeds configured max_bytes")
@@ -68,7 +68,7 @@ def read_records(config):
     manifest = json.loads(path.with_suffix('.manifest.json').read_text())
     if hashlib.sha256(path.read_bytes()).hexdigest() != manifest["sha256"]:
         raise ValueError("Prepared artifact checksum mismatch; prepare again")
-    return [vt.Record.model_validate_json(line) for line in path.read_text().splitlines()], manifest
+    return [el.Record.model_validate_json(line) for line in path.read_text().splitlines()], manifest
 
 
 def point_id(record_id, manifest):
@@ -109,8 +109,8 @@ def analyze_records(records, manifest, config, output):
     """Run the full cached corpus through DBSCAN and BERTopic; export JSON and a 3D map."""
     import html
     import plotly.graph_objects as go
-    data = vt.from_records(records, name="banking77", limits=config.limits).materialize()
-    results = vt.analyze(data, [
+    data = el.from_records(records, name="banking77", limits=config.limits).materialize()
+    results = el.analyze(data, [
         {"id":"groups", "type":"cluster", "parameters":{"label_field":"label_text"}},
         {"id":"themes", "type":"topics", "clusters_from":"groups", "parameters":{"ngram_max":2}},
     ])

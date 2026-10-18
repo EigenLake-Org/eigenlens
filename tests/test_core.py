@@ -1,7 +1,7 @@
 import pytest
-import vector_tools as vt
-from vector_tools.demo import tickets
-from vector_tools.registry import plan
+import eigenlens as vt
+from eigenlens.demo import tickets
+from eigenlens.registry import plan
 from test_density import fixture_data
 
 @pytest.fixture
@@ -95,7 +95,7 @@ def test_scope_identity_and_content_copy():
 
 def test_metadata_dates_serialize_portably():
     from datetime import datetime, timezone
-    from vector_tools.datasets import canonical
+    from eigenlens.datasets import canonical
     data=vt.from_records([{"id":"dated", "vector":[1,2], "metadata":{"created":datetime(2026,1,1,tzinfo=timezone.utc)}}]).materialize()
     assert "2026-01-01" in canonical(data.serializable())
 

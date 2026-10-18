@@ -4,20 +4,20 @@ The MCP server provides five database tools alongside its eight analysis tools. 
 
 ## Existing Python SDK clients
 
-`vt.from_client(client, collection, *, vector_field=None, text_field="text", query_vector=None, search_limit=1000, limits=None)` accepts an existing synchronous `qdrant_client.QdrantClient` or connected `weaviate.WeaviateClient` v4. Install the corresponding `qdrant` or `weaviate` extra. Client type detection imports optional SDKs on demand; no database request occurs until materialization.
+`el.from_client(client, collection, *, vector_field=None, text_field="text", query_vector=None, search_limit=1000, limits=None)` accepts an existing synchronous `qdrant_client.QdrantClient` or connected `weaviate.WeaviateClient` v4. Install the corresponding `qdrant` or `weaviate` extra. Client type detection imports optional SDKs on demand; no database request occurs until materialization.
 
 ```python
-import vector_tools as vt
+import eigenlens as el
 
 # qdrant_client is the QdrantClient your application already created.
-data = vt.from_client(qdrant_client, "banking77_minilm",
-                      limits=vt.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
+data = el.from_client(qdrant_client, "banking77_minilm",
+                      limits=el.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
                                        max_working_bytes=6 * 1024**3, max_seconds=1800)).materialize()
-groups = vt.cluster(data)
-themes = vt.topics(data, groups, ngram_max=2)
+groups = el.cluster(data)
+themes = el.topics(data, groups, ngram_max=2)
 
 # The same API accepts your connected WeaviateClient.
-other_data = vt.from_client(weaviate_client, "Questions",
+other_data = el.from_client(weaviate_client, "Questions",
                            text_field="content", vector_field="body").materialize()
 ```
 
@@ -29,10 +29,10 @@ Supply an externally generated query vector in the collection's embedding space:
 
 ```python
 # query_vector comes from the same embedding model as the stored records.
-data = vt.from_client(qdrant_client, "banking77_minilm",
+data = el.from_client(qdrant_client, "banking77_minilm",
                       query_vector=query_vector, search_limit=500).materialize()
-groups = vt.cluster(data)
-themes = vt.topics(data, groups)
+groups = el.cluster(data)
+themes = el.topics(data, groups)
 print(data.scope)  # retrieval_results
 ```
 
@@ -40,7 +40,7 @@ This selects up to `search_limit` nearest records with their **stored** vectors,
 
 `Limits()` defaults to 10,000 selected rows, 100,000 scanned rows, 64 MiB serialized selected content and batches of 256. Row/byte limits, duplicate IDs, dimension mismatches and conflicting embedding metadata fail without returning a partial materialization. `search_limit` must fit `max_rows` and the backend's query limit. Provenance includes collection, backend, vector field, retrieval mode and available model metadata. It excludes the SDK client, connection URL and credentials; query vectors are fingerprinted.
 
-The application owns the client's lifecycle. Vector Tools never calls `connect()` or `close()` on an injected client, including after a failure. Keep it connected until materialization finishes; close it in your application's context manager or `finally` block. Reads release their iterators on failure. Configure SDK request timeouts when you create the client. `max_seconds` checks elapsed retrieval time between SDK operations and records; it cannot interrupt an in-flight SDK call. Analysis after materialization is synchronous in the calling process.
+The application owns the client's lifecycle. EigenLens never calls `connect()` or `close()` on an injected client, including after a failure. Keep it connected until materialization finishes; close it in your application's context manager or `finally` block. Reads release their iterators on failure. Configure SDK request timeouts when you create the client. `max_seconds` checks elapsed retrieval time between SDK operations and records; it cannot interrupt an in-flight SDK call. Analysis after materialization is synchronous in the calling process.
 
 ### Submit the retrieved data to an MCP worker
 
@@ -94,9 +94,9 @@ Set the server encryption key once, and keep its value in private server configu
 python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
 ```
 
-Put that value in `VECTOR_ML_CONNECTION_KEY`. Generate it once for a data directory. Connections cannot be decrypted with a different key after restart. The key is separate from the SQLite database/data volume. The core does not automatically load a `.env` file for local stdio; the launcher must supply its environment. Compose reads its `.env` settings and passes the documented variables to the container.
+Put that value in `EIGENLENS_CONNECTION_KEY`. Generate it once for a data directory. Connections cannot be decrypted with a different key after restart. The key is separate from the SQLite database/data volume. The core does not automatically load a `.env` file for local stdio; the launcher must supply its environment. Compose reads its `.env` settings and passes the documented variables to the container.
 
-Saved definitions are in `<VECTOR_ML_DATA>/connections.sqlite`, mode `0600`. The encrypted payload contains the URL/DSN, API key/password and options. Public metadata holds only the connection ID, caller identity, label, backend type and creation time. `list_connections` returns no URL or credentials. All lookup, list and deletion operations enforce the authenticated caller identity; encrypted definitions also bind their owner.
+Saved definitions are in `<EIGENLENS_DATA>/connections.sqlite`, mode `0600`. The encrypted payload contains the URL/DSN, API key/password and options. Public metadata holds only the connection ID, caller identity, label, backend type and creation time. `list_connections` returns no URL or credentials. All lookup, list and deletion operations enforce the authenticated caller identity; encrypted definitions also bind their owner.
 
 Docker uses `/data/connections.sqlite` in `chat-worker-data`. Back up that volume and preserve its separate encryption key. Deleting a connection prevents future use of that ID; registered input snapshots and completed analysis artifacts remain available.
 
@@ -105,10 +105,10 @@ Docker uses `/data/connections.sqlite` in `chat-worker-data`. Back up that volum
 Configure these environment variables in the MCP server launcher:
 
 ```dotenv
-VECTOR_ML_DATABASE_TYPE=qdrant
-VECTOR_ML_DATABASE_URL=http://localhost:6333
-VECTOR_ML_DATABASE_API_KEY=
-VECTOR_ML_DATABASE_OPTIONS={}
+EIGENLENS_DATABASE_TYPE=qdrant
+EIGENLENS_DATABASE_URL=http://localhost:6333
+EIGENLENS_DATABASE_API_KEY=
+EIGENLENS_DATABASE_OPTIONS={}
 ```
 
 The API key is optional for an unauthenticated local Qdrant. Use the Docker-network URL `http://qdrant:6333` from the worker container. `connect_database` with no arguments reads this default only for caller `local`. It saves a new connection ID; clients should reuse it rather than reconnect for each message. Explicit connection requests do not inherit default credentials.
@@ -144,7 +144,7 @@ Or connect explicitly:
 }
 ```
 
-Returns `connection_id`, `db_type`, label, creation time, status and collection count after validating access. Requires `VECTOR_ML_CONNECTION_KEY`. At most `max_connections` definitions are saved per caller (default 128). Credentials are not returned. SDK errors are redacted.
+Returns `connection_id`, `db_type`, label, creation time, status and collection count after validating access. Requires `EIGENLENS_CONNECTION_KEY`. At most `max_connections` definitions are saved per caller (default 128). Credentials are not returned. SDK errors are redacted.
 
 ### list_connections
 
@@ -280,16 +280,16 @@ Adapters do not create collections or write database records. Use a stable colle
 
 ## Add another database
 
-Implement `vector_tools.databases.base.Adapter`: `list_collections`, `describe`, `scan`, `search` and `close`. Its constructor receives the decrypted connection spec; never return or log credentials. `scan` yields every normalized `Record` and releases resources when its generator is closed; `search` yields the requested bounded ranked selection with stored dense vectors. `describe` returns the selected `vector_field` and `dimension` when known. Set `max_search_limit` for the backend.
+Implement `eigenlens.databases.base.Adapter`: `list_collections`, `describe`, `scan`, `search` and `close`. Its constructor receives the decrypted connection spec; never return or log credentials. `scan` yields every normalized `Record` and releases resources when its generator is closed; `search` yields the requested bounded ranked selection with stored dense vectors. `describe` returns the selected `vector_field` and `dimension` when known. Set `max_search_limit` for the backend.
 
 Publish a plugin entry point:
 
 ```toml
-[project.entry-points."vector_tools.database_adapters"]
+[project.entry-points."eigenlens.database_adapters"]
 my_database = "my_package:MyDatabaseAdapter"
 ```
 
-Installing that package on the server exposes its `db_type` through `get_capabilities`. Applications embedding the service can also call `vector_tools.databases.register_adapter(name, factory)` before starting MCP. New adapters reuse the encrypted connection store, bounded snapshot registration and analysis tools.
+Installing that package on the server exposes its `db_type` through `get_capabilities`. Applications embedding the service can also call `eigenlens.databases.register_adapter(name, factory)` before starting MCP. New adapters reuse the encrypted connection store, bounded snapshot registration and analysis tools.
 
 ## Chat examples
 

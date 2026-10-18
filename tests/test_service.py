@@ -1,8 +1,8 @@
 import time
 import pytest
-from vector_tools.service import Service
-from vector_tools.schemas import VTError
-from vector_tools.demo import tickets
+from eigenlens.service import Service
+from eigenlens.schemas import VTError
+from eigenlens.demo import tickets
 
 def wait(service, id):
     deadline = time.monotonic() + 45
@@ -15,7 +15,7 @@ def wait(service, id):
 
 @pytest.fixture
 def service(tmp_path, monkeypatch):
-    monkeypatch.setenv("VECTOR_ML_DATA", str(tmp_path))
+    monkeypatch.setenv("EIGENLENS_DATA", str(tmp_path))
     service = Service()
     yield service
     service.close()
@@ -42,7 +42,7 @@ def test_durable_jobs_idempotency_access_pages(service):
         service.get_summary("other", ref)
     with pytest.raises(VTError, match="unauthorized"):
         service.get_job("other", j["job_id"])
-    from vector_tools.artifacts import Store
+    from eigenlens.artifacts import Store
     assert Store(service.config.root).get("local", ref, "res")["processed"] == 30
 
 def test_failed_cancelled_and_artifact(service):
@@ -62,8 +62,8 @@ def test_failed_cancelled_and_artifact(service):
         service.register_records("local", artifact_name="../records.jsonl")
 
 def test_restart_marks_interrupted(tmp_path, monkeypatch):
-    monkeypatch.setenv("VECTOR_ML_DATA", str(tmp_path))
-    from vector_tools.artifacts import Store, now
+    monkeypatch.setenv("EIGENLENS_DATA", str(tmp_path))
+    from eigenlens.artifacts import Store, now
     store = Store(tmp_path)
     with store.connect() as db:
         db.execute("INSERT INTO jobs(id,owner,status,payload,created_at,updated_at) VALUES(?,?,?,?,?,?)", ("job_interrupted", "local", "running", "{}", now(), now()))
@@ -76,7 +76,7 @@ def test_restart_marks_interrupted(tmp_path, monkeypatch):
         service.close()
 
 def test_registration_scope_and_persistent_restart(tmp_path, monkeypatch):
-    monkeypatch.setenv("VECTOR_ML_DATA", str(tmp_path))
+    monkeypatch.setenv("EIGENLENS_DATA", str(tmp_path))
     service = Service()
     ds = service.register_records("local", records=[r.model_dump() for r in tickets()])
     assert ds["scope"] == "retrieval_results"
@@ -155,7 +155,7 @@ def test_completed_cache_reuses_identical_snapshot_with_new_dataset_id(service):
 
 def test_analysis_cache_identity_covers_content_plan_limits_and_engine(service,monkeypatch):
     import copy
-    import vector_tools.cache as cache
+    import eigenlens.cache as cache
     ds=service.register_records('local',records=[r.model_dump() for r in tickets()])
     data=service.store.get('local',ds['dataset_id'],'ds')
     ops=[{'id':'groups','type':'cluster'}]
@@ -177,7 +177,7 @@ def test_analysis_cache_identity_covers_content_plan_limits_and_engine(service,m
 
 
 def test_completed_cache_survives_restart(tmp_path,monkeypatch):
-    monkeypatch.setenv('VECTOR_ML_DATA',str(tmp_path))
+    monkeypatch.setenv('EIGENLENS_DATA',str(tmp_path))
     rows=[r.model_dump() for r in tickets()]
     ops=[{'id':'groups','type':'cluster','parameters':{'eps_values':[.3]}}]
     service=Service()

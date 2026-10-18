@@ -10,9 +10,9 @@ import pytest
 from qdrant_client import QdrantClient, models
 from weaviate import WeaviateClient
 
-import vector_tools as vt
-from vector_tools.databases.qdrant import QdrantAdapter
-from vector_tools.databases.weaviate import WeaviateAdapter
+import eigenlens as vt
+from eigenlens.databases.qdrant import QdrantAdapter
+from eigenlens.databases.weaviate import WeaviateAdapter
 from test_density import fixture_data
 
 
@@ -27,7 +27,7 @@ def client():
 
 
 def test_real_qdrant_client_paginated_analysis_and_ownership(client, monkeypatch):
-    monkeypatch.setattr("vector_tools.databases.qdrant.QdrantClient", MagicMock(side_effect=AssertionError("must reuse supplied client")))
+    monkeypatch.setattr("eigenlens.databases.qdrant.QdrantClient", MagicMock(side_effect=AssertionError("must reuse supplied client")))
     close = MagicMock(wraps=client.close)
     monkeypatch.setattr(client, "close", close)
     scroll = MagicMock(wraps=client.scroll)

@@ -1,9 +1,11 @@
 .venv
 .git
 work
+.eigenlens
 .vector-ml
 __pycache__
 .pytest_cache
 .env
+.env.*
 
 demo-output

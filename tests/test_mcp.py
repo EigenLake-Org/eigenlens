@@ -8,9 +8,9 @@ import time
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from starlette.testclient import TestClient
-from vector_tools.config import Config
-from vector_tools.service import Service
-from vector_tools.server import AccessMiddleware, build_server
+from eigenlens.config import Config
+from eigenlens.service import Service
+from eigenlens.server import AccessMiddleware, build_server
 from test_density import fixture_data, operation
 
 TOOLS = {"get_capabilities", "register_records", "run_analysis", "get_job", "cancel_job",
@@ -26,8 +26,8 @@ def unpack(result):
 
 async def test_native_stdio_clustering(tmp_path):
     env = {k:v for k,v in os.environ.items() if k in {"PATH", "HOME", "TMPDIR", "LANG"}}
-    env["VECTOR_ML_DATA"] = str(tmp_path / "core")
-    async with stdio_client(StdioServerParameters(command=sys.executable, args=["-m", "vector_tools.server"], env=env)) as (read, write):
+    env["EIGENLENS_DATA"] = str(tmp_path / "core")
+    async with stdio_client(StdioServerParameters(command=sys.executable, args=["-m", "eigenlens.server"], env=env)) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
             assert {tool.name for tool in (await session.list_tools()).tools} == TOOLS
@@ -69,8 +69,8 @@ async def test_native_stdio_clustering(tmp_path):
 
 def test_authenticated_http_mcp_without_tcp(tmp_path, monkeypatch):
     # Exercise real ASGI/MCP JSON-RPC routing without requiring an external port.
-    monkeypatch.setenv("VECTOR_ML_DATA", str(tmp_path))
-    monkeypatch.setenv("VECTOR_ML_MCP_TOKEN", "http-test-token")
+    monkeypatch.setenv("EIGENLENS_DATA", str(tmp_path))
+    monkeypatch.setenv("EIGENLENS_MCP_TOKEN", "http-test-token")
     service = Service(Config())
     try:
         server = build_server(service)

@@ -9,12 +9,12 @@ from cryptography.fernet import Fernet
 import pytest
 from qdrant_client import QdrantClient, models
 
-from vector_tools.config import Config
-from vector_tools.connections import ConnectionStore
-from vector_tools.databases import CUSTOM, register_adapter
-from vector_tools.databases.base import Adapter, ConnectionOptions, record
-from vector_tools.schemas import Record, VTError
-from vector_tools.service import Service
+from eigenlens.config import Config
+from eigenlens.connections import ConnectionStore
+from eigenlens.databases import CUSTOM, register_adapter
+from eigenlens.databases.base import Adapter, ConnectionOptions, record
+from eigenlens.schemas import Record, VTError
+from eigenlens.service import Service
 from test_density import fixture_data, operation
 
 
@@ -44,7 +44,7 @@ class FixtureAdapter(Adapter):
 
 @pytest.fixture
 def database_service(tmp_path, monkeypatch):
-    monkeypatch.setenv("VECTOR_ML_CONNECTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("EIGENLENS_CONNECTION_KEY", Fernet.generate_key().decode())
     monkeypatch.setitem(CUSTOM, "fixture", FixtureAdapter)
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"data_dir": str(tmp_path / "data"), "callers": {"alice": {}, "bob": {}, "local": {}}}))
@@ -91,17 +91,17 @@ def test_encrypted_persistence_and_owner_isolation(database_service):
 
 def test_missing_wrong_and_changed_encryption_keys(database_service, monkeypatch):
     service = database_service
-    original = __import__('os').environ['VECTOR_ML_CONNECTION_KEY']
-    monkeypatch.delenv("VECTOR_ML_CONNECTION_KEY")
-    with pytest.raises(VTError, match="Set VECTOR_ML_CONNECTION_KEY"):
+    original = __import__('os').environ['EIGENLENS_CONNECTION_KEY']
+    monkeypatch.delenv("EIGENLENS_CONNECTION_KEY")
+    with pytest.raises(VTError, match="Set EIGENLENS_CONNECTION_KEY"):
         connection(service)
     assert service.list_connections("alice")["count"] == 0
-    monkeypatch.setenv("VECTOR_ML_CONNECTION_KEY", "bad-key")
+    monkeypatch.setenv("EIGENLENS_CONNECTION_KEY", "bad-key")
     with pytest.raises(VTError, match="valid Fernet"):
         connection(service)
-    monkeypatch.setenv("VECTOR_ML_CONNECTION_KEY", original)
+    monkeypatch.setenv("EIGENLENS_CONNECTION_KEY", original)
     cid = connection(service)
-    monkeypatch.setenv("VECTOR_ML_CONNECTION_KEY", Fernet.generate_key().decode())
+    monkeypatch.setenv("EIGENLENS_CONNECTION_KEY", Fernet.generate_key().decode())
     with pytest.raises(VTError, match="original"):
         service.list_collections("alice", cid)
 
@@ -162,7 +162,7 @@ def test_query_model_resolution_and_invalid_vectors(database_service, monkeypatc
     def embed(text, model, revision, normalize):
         seen.append((text, model, revision, normalize))
         return [1., 2.]
-    monkeypatch.setattr("vector_tools.retrieval.embed_query", embed)
+    monkeypatch.setattr("eigenlens.retrieval.embed_query", embed)
     result = service.retrieve_records("alice", cid, "questions", query="ATM", search_limit=3)
     assert result["count"] == 3
     assert seen == [("ATM", "sentence-transformers/test-model", "snapshot", True)]
@@ -175,9 +175,9 @@ def test_query_model_resolution_and_invalid_vectors(database_service, monkeypatc
 
 def test_operator_default_is_local_only(database_service, monkeypatch):
     service = database_service
-    monkeypatch.setenv("VECTOR_ML_DATABASE_TYPE", "fixture")
-    monkeypatch.setenv("VECTOR_ML_DATABASE_URL", "https://default.example")
-    monkeypatch.setenv("VECTOR_ML_DATABASE_API_KEY", "operator-secret")
+    monkeypatch.setenv("EIGENLENS_DATABASE_TYPE", "fixture")
+    monkeypatch.setenv("EIGENLENS_DATABASE_URL", "https://default.example")
+    monkeypatch.setenv("EIGENLENS_DATABASE_API_KEY", "operator-secret")
     result = service.connect_database("local")
     assert result["name"] == "default"
     assert service.databases.store.get("local", result["connection_id"])["api_key"] == "operator-secret"
@@ -213,7 +213,7 @@ def test_collection_options_inherit_connection_settings():
 
 
 def test_real_qdrant_pagination_search_and_analysis(database_service, tmp_path, monkeypatch):
-    from vector_tools.databases import qdrant
+    from eigenlens.databases import qdrant
     data_path = str(tmp_path / 'qdrant')
     fixtures = fixture_data().records
     with closing(QdrantClient(path=data_path)) as client:
@@ -243,7 +243,7 @@ def test_real_qdrant_pagination_search_and_analysis(database_service, tmp_path, 
 
 def test_pinecone_pagination_fetch_and_query_mapping(monkeypatch):
     pytest.importorskip('pinecone')
-    from vector_tools.databases import pinecone
+    from eigenlens.databases import pinecone
     class Index:
         def list_paginated(self, **kwargs):
             second = kwargs.get('pagination_token') == 'page2'
@@ -271,7 +271,7 @@ def test_pinecone_pagination_fetch_and_query_mapping(monkeypatch):
 
 def test_milvus_iterator_cleanup_and_vector_mapping(monkeypatch):
     pytest.importorskip('pymilvus')
-    from vector_tools.databases import milvus
+    from eigenlens.databases import milvus
     closed = []
     class Iterator:
         def __init__(self): self.page = 0
@@ -302,7 +302,7 @@ def test_milvus_iterator_cleanup_and_vector_mapping(monkeypatch):
 @pytest.mark.parametrize('field',['body','default'])
 def test_weaviate_named_vector_mapping(monkeypatch, field):
     pytest.importorskip('weaviate')
-    from vector_tools.databases import weaviate
+    from eigenlens.databases import weaviate
     point = NS(uuid='uuid',vector={field:[1,2]},properties={'content':'ATM'})
     def near_vector(**kwargs):
         assert kwargs['target_vector'] == field and kwargs['include_vector']
@@ -320,7 +320,7 @@ def test_weaviate_named_vector_mapping(monkeypatch, field):
 
 def test_pgvector_identifiers_bound_values_and_read_only(monkeypatch):
     pytest.importorskip('psycopg')
-    from vector_tools.databases import pgvector
+    from eigenlens.databases import pgvector
     calls = []
     table = 'records"; DROP TABLE records; --'
     rows = [{'_id':'1','_vector':'[1,2]','_payload':{'text':'ATM'}}]
@@ -356,7 +356,7 @@ def test_pgvector_identifiers_bound_values_and_read_only(monkeypatch):
 
 def test_http_database_tools_and_caller_isolation(database_service, monkeypatch):
     from starlette.testclient import TestClient
-    from vector_tools.server import AccessMiddleware, build_server
+    from eigenlens.server import AccessMiddleware, build_server
     service = database_service
     service.config.callers = {'alice':{'token_env':'ALICE_TOKEN'}, 'bob':{'token_env':'BOB_TOKEN'}}
     monkeypatch.setenv('ALICE_TOKEN','alice-test-token')
@@ -401,7 +401,7 @@ def test_full_scan_ignores_search_limit_and_cleans_up_at_row_limit(database_serv
 def test_retrieval_timeout_creates_no_snapshot(database_service, monkeypatch):
     service, cid = database_service, connection(database_service)
     ticks = iter([0, 1000])
-    monkeypatch.setattr('vector_tools.retrieval.time',NS(monotonic=lambda:next(ticks)))
+    monkeypatch.setattr('eigenlens.retrieval.time',NS(monotonic=lambda:next(ticks)))
     with pytest.raises(VTError, match='max_seconds'):
         service.retrieve_records('alice',cid,'questions')
     assert datasets_count(service) == 0
@@ -437,7 +437,7 @@ def test_embedding_failure_is_actionable_and_redacted(database_service, monkeypa
     cid = connection(service, options={'embedding_model':'private-model'})
     def fail(*args):
         raise RuntimeError('private-model-access-token')
-    monkeypatch.setattr('vector_tools.retrieval.embed_query',fail)
+    monkeypatch.setattr('eigenlens.retrieval.embed_query',fail)
     with pytest.raises(VTError, match='original embedding provider') as caught:
         service.retrieve_records('alice',cid,'questions',query='ATM')
     assert 'private-model-access-token' not in str(caught.value)

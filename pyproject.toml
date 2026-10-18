@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vector-tools"
+name = "eigenlens"
 version = "0.1.0"
 description = "Clustering and topic labels for vector records through Python and MCP"
 requires-python = ">=3.11"
@@ -21,8 +21,12 @@ databases = ["qdrant-client>=1.15,<2", "pinecone>=8.1,<9", "httpx>=0.28,<1", "py
 test = ["pytest>=8", "pytest-asyncio>=0.25", "httpx>=0.28"]
 
 [project.scripts]
-vector-ml = "vector_tools.server:main"
+eigenlens = "eigenlens.server:main"
+vector-ml = "eigenlens.server:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["eigenlens", "vector_tools"]

@@ -1,17 +1,17 @@
 import json
 import time
 import pytest
-from vector_tools.config import Config
-from vector_tools.service import Service
-from vector_tools.schemas import VTError
+from eigenlens.config import Config
+from eigenlens.service import Service
+from eigenlens.schemas import VTError
 
 
 @pytest.mark.parametrize('workers',[1,2,16])
 def test_worker_override_and_shared_memory_budget(tmp_path,monkeypatch,workers):
     path=tmp_path/'config.json'
     path.write_text(json.dumps({'limits':{'max_jobs':1,'max_working_bytes':8*1024**3}}))
-    monkeypatch.setenv('VECTOR_ML_WORKERS',str(workers))
-    monkeypatch.setenv('VECTOR_ML_TOTAL_WORKING_BYTES',str(8*1024**3))
+    monkeypatch.setenv('EIGENLENS_WORKERS',str(workers))
+    monkeypatch.setenv('EIGENLENS_TOTAL_WORKING_BYTES',str(8*1024**3))
     config=Config(str(path))
     assert config.limits.max_jobs==workers
     assert config.limits.max_working_bytes==(8*1024**3)//workers
@@ -21,29 +21,29 @@ def test_worker_override_and_shared_memory_budget(tmp_path,monkeypatch,workers):
 
 @pytest.mark.parametrize('value',['0','17','-1','1.5','two','', '01'])
 def test_invalid_worker_count_is_rejected(monkeypatch,value):
-    monkeypatch.setenv('VECTOR_ML_WORKERS',value)
+    monkeypatch.setenv('EIGENLENS_WORKERS',value)
     with pytest.raises(VTError,match='1 to 16'):Config()
 
 
 def test_configured_default_is_preserved(monkeypatch):
-    monkeypatch.delenv('VECTOR_ML_WORKERS',raising=False)
-    monkeypatch.delenv('VECTOR_ML_TOTAL_WORKING_BYTES',raising=False)
+    monkeypatch.delenv('EIGENLENS_WORKERS',raising=False)
+    monkeypatch.delenv('EIGENLENS_TOTAL_WORKING_BYTES',raising=False)
     assert Config('config/chat-worker.json').limits.max_jobs==1
 
 
 @pytest.mark.parametrize('workers,threads',[(1,2),(2,1),(4,1)])
 def test_cpu_budget_shared_across_workers(monkeypatch,workers,threads):
-    monkeypatch.setenv('VECTOR_ML_CPU_BUDGET','2')
-    monkeypatch.setenv('VECTOR_ML_WORKERS',str(workers))
+    monkeypatch.setenv('EIGENLENS_CPU_BUDGET','2')
+    monkeypatch.setenv('EIGENLENS_WORKERS',str(workers))
     assert Config().numeric_threads==threads
 
 
 def test_two_real_jobs_run_and_third_waits(tmp_path,monkeypatch):
-    from vector_tools.demo import tickets
+    from eigenlens.demo import tickets
     from worker_helpers import paused_cluster_worker, wait_started
-    monkeypatch.setenv('VECTOR_ML_DATA',str(tmp_path))
-    monkeypatch.setenv('VECTOR_ML_WORKERS','2')
-    monkeypatch.setenv('VECTOR_ML_TOTAL_WORKING_BYTES',str(128*1024**2))
+    monkeypatch.setenv('EIGENLENS_DATA',str(tmp_path))
+    monkeypatch.setenv('EIGENLENS_WORKERS','2')
+    monkeypatch.setenv('EIGENLENS_TOTAL_WORKING_BYTES',str(128*1024**2))
     service=Service()
     service.supervisor.worker_target=paused_cluster_worker
     try:

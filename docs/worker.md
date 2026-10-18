@@ -14,13 +14,13 @@ These Compose variables and service names remain for deployment compatibility. T
 
 The image installs CPU PyTorch and all five database adapter SDKs. Topic modeling uses precomputed embeddings and existing DBSCAN assignments through BERTopic's manual workflow; no embedding model is downloaded by analysis jobs. UMAP and HDBSCAN are dependencies of BERTopic but are not executed by this pipeline. Text-query retrieval may resolve/download a query embedding model separately in the MCP process.
 
-For database tools, configure `VECTOR_ML_CONNECTION_KEY` in the private Compose `.env` file. Keep this key across restarts, separate from the data volume. Optional `VECTOR_ML_DATABASE_TYPE`, `VECTOR_ML_DATABASE_URL`, `VECTOR_ML_DATABASE_API_KEY` and `VECTOR_ML_DATABASE_OPTIONS` provide a default for caller `local`. Per-user clients can call `connect_database` with their own settings. See [database setup](databases.md).
+For database tools, configure `EIGENLENS_CONNECTION_KEY` in the private Compose `.env` file. Keep this key across restarts, separate from the data volume. Optional `EIGENLENS_DATABASE_TYPE`, `EIGENLENS_DATABASE_URL`, `EIGENLENS_DATABASE_API_KEY` and `EIGENLENS_DATABASE_OPTIONS` provide a default for caller `local`. Per-user clients can call `connect_database` with their own settings. See [database setup](databases.md).
 
 Query models cache under `/data/models/huggingface` in the data volume, so restarts reuse downloaded weights. Analysis jobs continue using stored vectors and require no query model.
 
 ## Workers and limits
 
-Default concurrency is **1**, configurable from 1–16 with `VECTOR_CHAT_WORKERS`. Each job is a process in the same worker container. More workers allow concurrent jobs; they do not split one analysis into smaller jobs. Core startup also supports `VECTOR_ML_WORKERS` directly.
+Default concurrency is **1**, configurable from 1–16 with `VECTOR_CHAT_WORKERS`. Each job is a process in the same worker container. More workers allow concurrent jobs; they do not split one analysis into smaller jobs. Core startup also supports `EIGENLENS_WORKERS` directly.
 
 Compose divides an 8 GiB working-memory estimate among slots. The container retains two CPUs and an 8 GiB memory limit. Capabilities report per-job limits; `/health` reports worker slots. The worker config allows 20,000 rows, 512 MiB serialized input and 30 minutes per job. Oversized selections fail without silent sampling. Memory estimates do not include every allocation made by imported libraries.
 
@@ -28,7 +28,7 @@ Restart interrupts unfinished jobs. Change worker count after active jobs finish
 
 ## Persistence
 
-The `vector-ml` Compose project keeps job state and artifacts in `chat-worker-data`; optional Qdrant uses its own `qdrant` volume. Stopping the worker preserves data:
+The Compose project retains the deployment identifier `vector-ml` and keeps job state and artifacts in `chat-worker-data`; optional Qdrant uses its own `qdrant` volume. The EigenLens worker image is `eigenlens-worker`. Stopping the worker preserves data:
 
 ```bash
 docker compose --profile chat-worker stop chat-worker

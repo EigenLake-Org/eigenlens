@@ -4,20 +4,20 @@ services:
     build:
       context: .
       target: server
-    image: vector-ml-chat-worker
+    image: eigenlens-worker
     profiles: ["chat-worker"]
-    command: ["vector-ml", "--transport", "http", "--host", "0.0.0.0", "--config", "/app/config/chat-worker.json"]
+    command: ["eigenlens", "--transport", "http", "--host", "0.0.0.0", "--config", "/app/config/chat-worker.json"]
     ports: ["127.0.0.1:8020:8000"]
     environment:
-      VECTOR_ML_MCP_TOKEN: ${VECTOR_CHAT_WORKER_TOKEN:-}
-      VECTOR_ML_WORKERS: ${VECTOR_CHAT_WORKERS:-1}
-      VECTOR_ML_TOTAL_WORKING_BYTES: "8589934592"
-      VECTOR_ML_CPU_BUDGET: "2"
-      VECTOR_ML_CONNECTION_KEY: ${VECTOR_ML_CONNECTION_KEY:-}
-      VECTOR_ML_DATABASE_TYPE: ${VECTOR_ML_DATABASE_TYPE:-}
-      VECTOR_ML_DATABASE_URL: ${VECTOR_ML_DATABASE_URL:-}
-      VECTOR_ML_DATABASE_API_KEY: ${VECTOR_ML_DATABASE_API_KEY:-}
-      VECTOR_ML_DATABASE_OPTIONS: ${VECTOR_ML_DATABASE_OPTIONS:-}
+      EIGENLENS_MCP_TOKEN: ${VECTOR_CHAT_WORKER_TOKEN:-}
+      EIGENLENS_WORKERS: ${VECTOR_CHAT_WORKERS:-1}
+      EIGENLENS_TOTAL_WORKING_BYTES: "8589934592"
+      EIGENLENS_CPU_BUDGET: "2"
+      EIGENLENS_CONNECTION_KEY: ${EIGENLENS_CONNECTION_KEY:-${VECTOR_ML_CONNECTION_KEY:-}}
+      EIGENLENS_DATABASE_TYPE: ${EIGENLENS_DATABASE_TYPE:-${VECTOR_ML_DATABASE_TYPE:-}}
+      EIGENLENS_DATABASE_URL: ${EIGENLENS_DATABASE_URL:-${VECTOR_ML_DATABASE_URL:-}}
+      EIGENLENS_DATABASE_API_KEY: ${EIGENLENS_DATABASE_API_KEY:-${VECTOR_ML_DATABASE_API_KEY:-}}
+      EIGENLENS_DATABASE_OPTIONS: ${EIGENLENS_DATABASE_OPTIONS:-${VECTOR_ML_DATABASE_OPTIONS:-}}
     volumes: ["chat-worker-data:/data"]
     init: true
     mem_limit: 8g

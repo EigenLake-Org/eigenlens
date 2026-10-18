@@ -8,21 +8,21 @@ Connect an MCP-capable chat agent to this server, then retrieve or supply record
 
 Follow the [README pip installation and Codex registration](../README.md#installation). The chat host launches the server and manages its stdin/stdout connection. Configure other local hosts with:
 
-- Executable: the installed `vector-ml` command (use its absolute path if the host cannot resolve it on PATH).
+- Executable: the installed `eigenlens` command (use its absolute path if the host cannot resolve it on PATH).
 - Arguments: none for the default configuration.
-- Environment: `VECTOR_ML_DATA=<absolute-path-to-your-server-data-directory>`.
+- Environment: `EIGENLENS_DATA=<absolute-path-to-your-server-data-directory>`.
 - Caller: `local` (the stdio default).
 
-Use one server per data directory. The default configuration has a 10,000-record limit. For the full banking corpus, follow [BANKING77 setup and chat registration](../README.md#try-the-banking77-demo): pass `--config <absolute-repo-path>/config/banking77.json` and set `VECTOR_ML_DATA=<absolute-repo-path>/.vector-ml/banking77`. Its prepared artifact is `<VECTOR_ML_DATA>/ingress/local/banking77.jsonl`.
+Use one server per data directory. The default configuration has a 10,000-record limit. For the full banking corpus, follow [BANKING77 setup and chat registration](../README.md#try-the-banking77-demo): pass `--config <absolute-repo-path>/config/banking77.json` and set `EIGENLENS_DATA=<absolute-repo-path>/.eigenlens/banking77`. Its prepared artifact is `<EIGENLENS_DATA>/ingress/local/banking77.jsonl`.
 
 ### Shared Docker HTTP server
 
-Start the [Docker worker](worker.md#docker). Its MCP endpoint is `http://127.0.0.1:8020/mcp`. Set `VECTOR_ML_MCP_TOKEN` in the chat host's environment to the **same token** configured as `VECTOR_CHAT_WORKER_TOKEN` when starting Docker. Then register it in Codex:
+Start the [Docker worker](worker.md#docker). Its MCP endpoint is `http://127.0.0.1:8020/mcp`. Set `EIGENLENS_MCP_TOKEN` in the chat host's environment to the **same token** configured as `VECTOR_CHAT_WORKER_TOKEN` when starting Docker. Then register it in Codex:
 
 ```bash
-codex mcp add vector-tools-http \
+codex mcp add eigenlens-http \
   --url http://127.0.0.1:8020/mcp \
-  --bearer-token-env-var VECTOR_ML_MCP_TOKEN
+  --bearer-token-env-var EIGENLENS_MCP_TOKEN
 codex mcp list
 ```
 
@@ -34,9 +34,9 @@ The local BANKING77 cache is on your host. Stage it through the upload route bef
 # Run from the repository directory; use a unique filename per upload.
 upload_name="banking77-$(python3 -c 'import uuid; print(uuid.uuid4().hex)').jsonl"
 curl --fail-with-body \
-  -H "Authorization: Bearer $VECTOR_ML_MCP_TOKEN" \
+  -H "Authorization: Bearer $EIGENLENS_MCP_TOKEN" \
   -H 'Content-Type: application/x-ndjson' \
-  --data-binary @.vector-ml/banking77/ingress/local/banking77.jsonl \
+  --data-binary @.eigenlens/banking77/ingress/local/banking77.jsonl \
   "http://127.0.0.1:8020/ingress/$upload_name"
 ```
 
@@ -44,7 +44,7 @@ Tell the agent the returned `artifact_name`; use that filename in `register_reco
 
 ```bash
 curl --fail-with-body -X DELETE \
-  -H "Authorization: Bearer $VECTOR_ML_MCP_TOKEN" \
+  -H "Authorization: Bearer $EIGENLENS_MCP_TOKEN" \
   "http://127.0.0.1:8020/ingress/$upload_name"
 ```
 
@@ -246,7 +246,7 @@ For a plot, the agent/client collects every cluster page, colors points by `clus
 
 After the [BANKING77 setup and dedicated chat connection](../README.md#use-the-banking-dataset-in-chat), start with:
 
-> Use vector-tools-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then use BERTopic to find keywords and two-word phrases for those clusters. Wait for completion and show the cluster counts, unassigned count, topic terms and examples.
+> Use eigenlens-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then use BERTopic to find keywords and two-word phrases for those clusters. Wait for completion and show the cluster counts, unassigned count, topic terms and examples.
 
 Useful follow-ups:
 
@@ -270,10 +270,10 @@ Semantic retrieval is a bounded ranked selection; report its count and `search_l
 python examples/mcp_client.py
 ```
 
-This exercises stdio MCP with 62 synthetic records and prints discovery plus the complete call trace. It does not use a chat model or the banking dataset. To exercise an existing Docker server instead, set the matching bearer token in `VECTOR_ML_MCP_TOKEN` and run:
+This exercises stdio MCP with 62 synthetic records and prints discovery plus the complete call trace. It does not use a chat model or the banking dataset. To exercise an existing Docker server instead, set the matching bearer token in `EIGENLENS_MCP_TOKEN` and run:
 
 ```bash
-VECTOR_ML_TRANSPORT=http \
-VECTOR_ML_MCP_URL=http://127.0.0.1:8020/mcp \
+EIGENLENS_TRANSPORT=http \
+EIGENLENS_MCP_URL=http://127.0.0.1:8020/mcp \
 python examples/mcp_client.py
 ```

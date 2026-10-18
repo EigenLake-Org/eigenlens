@@ -1,9 +1,9 @@
 import json
 import numpy as np
 import pytest
-import vector_tools as vt
-from vector_tools.registry import plan
-from vector_tools.schemas import Limits, VTError
+import eigenlens as vt
+from eigenlens.registry import plan
+from eigenlens.schemas import Limits, VTError
 
 
 def fixture_data(labels=True, limits=None):
@@ -114,7 +114,7 @@ def test_distance_cache_falls_back_without_dropping_records():
 
 
 def test_numeric_budget_is_scoped_to_one_execution():
-    from vector_tools.execution_context import numeric_budget,numeric_threads
+    from eigenlens.execution_context import numeric_budget,numeric_threads
     assert numeric_threads()==1
     with numeric_budget(2):
         assert vt.cluster(fixture_data()).effective_parameters['numeric_threads']==2

@@ -1,5 +1,6 @@
 """Native MCP clustering workflow over stdio or authenticated HTTP; no model needed."""
 import asyncio
+from eigenlens.environment import get_env
 import json
 import os
 import sys
@@ -35,18 +36,18 @@ async def poll(call, job_id, timeout=300):
 @asynccontextmanager
 async def connection(transport="stdio"):
     if transport == "stdio":
-        args = ["-m", "vector_tools.server"]
-        if os.getenv("VECTOR_ML_CONFIG"):
-            args += ["--config", os.environ["VECTOR_ML_CONFIG"]]
+        args = ["-m", "eigenlens.server"]
+        if get_env("EIGENLENS_CONFIG"):
+            args += ["--config", get_env("EIGENLENS_CONFIG")]
         async with stdio_client(StdioServerParameters(command=sys.executable, args=args, env=dict(os.environ))) as (read, write):
             async with ClientSession(read, write) as session:
                 initialized = await session.initialize()
                 yield session, initialized
     else:
         import httpx
-        token = os.getenv("VECTOR_ML_MCP_TOKEN")
+        token = get_env("EIGENLENS_MCP_TOKEN")
         async with httpx.AsyncClient(headers={"Authorization":f"Bearer {token}"} if token else {}) as client:
-            async with streamable_http_client(os.environ["VECTOR_ML_MCP_URL"], http_client=client) as (read, write, _):
+            async with streamable_http_client(get_env("EIGENLENS_MCP_URL"), http_client=client) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     initialized = await session.initialize()
                     yield session, initialized
@@ -54,14 +55,14 @@ async def connection(transport="stdio"):
 async def main():
     import uuid
     trace = []
-    async with connection(os.getenv("VECTOR_ML_TRANSPORT", "stdio")) as (session, initialized):
+    async with connection(get_env("EIGENLENS_TRANSPORT", "stdio")) as (session, initialized):
         async def call(name, args):
             value = content(await session.call_tool(name, args))
             trace.append({"tool":name, "arguments":args, "result":value})
             return value
         discovered = await session.list_tools()
         await call("get_capabilities", {})
-        from vector_tools.demo import tickets
+        from eigenlens.demo import tickets
         ds = await call("register_records", {"records":[r.model_dump() for r in tickets()], "selection_scope":"complete_selection"})
         job = await call("run_analysis", {"dataset_id":ds["dataset_id"], "operations":OPERATIONS, "idempotency_key":uuid.uuid4().hex})
         job = await poll(call, job["job_id"])

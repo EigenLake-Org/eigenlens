@@ -1,4 +1,4 @@
-# Vector Tools
+# EigenLens
 
 Cluster existing embeddings and model their topics through Python or an MCP job server.
 
@@ -11,27 +11,27 @@ Cluster existing embeddings and model their topics through Python or an MCP job 
 Requires Python 3.11 or newer. Install the MCP server with pip from this repository's implementation branch:
 
 ```bash
-pip install 'vector-tools[server,qdrant] @ git+https://github.com/EigenLake-Org/vector-tools.git@feature/banking77-dbscan'
+pip install 'eigenlens[server,qdrant] @ git+https://github.com/EigenLake-Org/eigenlens.git@feature/banking77-dbscan'
 ```
 
-This installs the `vector-ml` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
+This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
 
 ## Use your existing Python database client
 
 Pass your application's initialized **QdrantClient** or **WeaviateClient v4** directly. `from_client` detects the SDK; reads start when you call `materialize()`. You keep control of credentials, connection settings, timeouts and closing the client.
 
 ```python
-import vector_tools as vt
+import eigenlens as el
 from qdrant_client import QdrantClient
 
 client = QdrantClient(url="http://localhost:6333")
 try:
-    data = vt.from_client(
+    data = el.from_client(
         client, collection="banking77_minilm",
-        limits=vt.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
+        limits=el.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
                          max_working_bytes=6 * 1024**3, max_seconds=1800),
     ).materialize()
-    results = vt.analyze(data, [
+    results = el.analyze(data, [
         {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
         {"id": "themes", "type": "topics", "clusters_from": "groups",
          "parameters": {"ngram_max": 2}},
@@ -46,12 +46,12 @@ For Weaviate, install the `weaviate` extra and pass its connected client:
 
 ```python
 import weaviate
-import vector_tools as vt
+import eigenlens as el
 
 with weaviate.connect_to_local() as client:
-    data = vt.from_client(client, collection="Questions", text_field="content").materialize()
-    groups = vt.cluster(data)
-    themes = vt.topics(data, groups, ngram_max=2)
+    data = el.from_client(client, collection="Questions", text_field="content").materialize()
+    groups = el.cluster(data)
+    themes = el.topics(data, groups, ngram_max=2)
 ```
 
 These examples read the entire collection across pages, or fail at configured limits. They use stored embeddings. To cluster search results, pass `query_vector` and `search_limit`; generate that query vector with the same model used for the collection. Set `vector_field` only when the collection has multiple dense vector fields. See [Python client options and MCP handoff](docs/databases.md#existing-python-sdk-clients).
@@ -69,13 +69,13 @@ MCP exposes tools that an agent can call during a conversation. You connect the 
 After installation, register the server:
 
 ```bash
-codex mcp add vector-tools \
-  --env "VECTOR_ML_DATA=$HOME/.local/share/vector-tools" \
-  -- vector-ml
+codex mcp add eigenlens \
+  --env "EIGENLENS_DATA=$HOME/.local/share/eigenlens" \
+  -- eigenlens
 codex mcp list
 ```
 
-Start a new Codex session with the server enabled. Codex launches it over stdio; you do not need to run a separate server command. The chat host must be able to find the installed `vector-ml` executable on its PATH. Use one active server per data directory. See the [official Codex MCP commands](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
+Start a new Codex session with the server enabled. Codex launches it over stdio; you do not need to run a separate server command. The chat host must be able to find the installed `eigenlens` executable on its PATH. Use one active server per data directory. See the [official Codex MCP commands](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
 
 Other local MCP hosts can use the same executable, arguments and environment. For a shared Docker server, use the Streamable HTTP URL `http://127.0.0.1:8020/mcp` and its bearer token; see [connection options and uploads](docs/mcp.md#connection-options).
 
@@ -83,7 +83,7 @@ Other local MCP hosts can use the same executable, arguments and environment. Fo
 
 First [connect your vector database through MCP](#connect-your-vector-database) or [stage a JSONL file](docs/mcp.md#connection-options). Then ask:
 
-> Use vector-tools to cluster the dataset I supplied with DBSCAN search and model its topics with BERTopic using phrases up to two words. Wait for the job to finish, then show cluster sizes, unassigned records, topic terms and five representative examples for each cluster you discuss. Report any analysis failure.
+> Use eigenlens to cluster the dataset I supplied with DBSCAN search and model its topics with BERTopic using phrases up to two words. Wait for the job to finish, then show cluster sizes, unassigned records, topic terms and five representative examples for each cluster you discuss. Report any analysis failure.
 
 The agent registers your input to obtain a dataset ID, starts a job, polls its status, then reads the result IDs. Keep these IDs in the conversation for follow-up questions. For a ready-made dataset, see the [BANKING77 demo](#try-the-banking77-demo) below.
 
@@ -114,27 +114,27 @@ For a local Qdrant default, set these variables in the environment used to launc
 
 ```bash
 # Generate once; retain this key in your private server environment across restarts.
-export VECTOR_ML_CONNECTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
-export VECTOR_ML_DATABASE_TYPE=qdrant
-export VECTOR_ML_DATABASE_URL=http://localhost:6333
-# Set VECTOR_ML_DATABASE_API_KEY in your private environment for an authenticated database.
+export EIGENLENS_CONNECTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+export EIGENLENS_DATABASE_TYPE=qdrant
+export EIGENLENS_DATABASE_URL=http://localhost:6333
+# Set EIGENLENS_DATABASE_API_KEY in your private environment for an authenticated database.
 ```
 
 For Codex, register the server with these environment settings (replace the earlier generic registration):
 
 ```bash
-codex mcp add vector-tools \
-  --env "VECTOR_ML_DATA=$HOME/.local/share/vector-tools" \
-  --env "VECTOR_ML_CONNECTION_KEY=$VECTOR_ML_CONNECTION_KEY" \
-  --env "VECTOR_ML_DATABASE_TYPE=$VECTOR_ML_DATABASE_TYPE" \
-  --env "VECTOR_ML_DATABASE_URL=$VECTOR_ML_DATABASE_URL" \
-  --env "VECTOR_ML_DATABASE_API_KEY=${VECTOR_ML_DATABASE_API_KEY:-}" \
-  -- vector-ml
+codex mcp add eigenlens \
+  --env "EIGENLENS_DATA=$HOME/.local/share/eigenlens" \
+  --env "EIGENLENS_CONNECTION_KEY=$EIGENLENS_CONNECTION_KEY" \
+  --env "EIGENLENS_DATABASE_TYPE=$EIGENLENS_DATABASE_TYPE" \
+  --env "EIGENLENS_DATABASE_URL=$EIGENLENS_DATABASE_URL" \
+  --env "EIGENLENS_DATABASE_API_KEY=${EIGENLENS_DATABASE_API_KEY:-}" \
+  -- eigenlens
 ```
 
 Start a new session and ask: **“Connect to the configured database and list its collections.”** The no-argument default is available to caller `local`. Other authenticated callers supply their own connection settings. For Docker, keep the same settings in a private `.env` file; the worker receives them through Compose. Its local Qdrant URL is `http://qdrant:6333`. See [database setup and exact MCP calls](docs/databases.md).
 
-Saved connections live in `<VECTOR_ML_DATA>/connections.sqlite` (Docker: `/data/connections.sqlite` in `chat-worker-data`). URLs, credentials and options are encrypted. Keep `VECTOR_ML_CONNECTION_KEY` outside that database and preserve it across restarts. Connections are scoped to the authenticated caller; chats sharing a server caller identity share that caller's access.
+Saved connections live in `<EIGENLENS_DATA>/connections.sqlite` (Docker: `/data/connections.sqlite` in `chat-worker-data`). URLs, credentials and options are encrypted. Keep `EIGENLENS_CONNECTION_KEY` outside that database and preserve it across restarts. Connections are scoped to the authenticated caller; chats sharing a server caller identity share that caller's access.
 
 For Qdrant, users provide:
 
@@ -229,8 +229,8 @@ On success, use `results.groups` as the result ID for summaries, examples and pa
 Clone the repository for its example scripts and Docker configuration, then install the demo dependencies with pip:
 
 ```bash
-git clone --branch feature/banking77-dbscan https://github.com/EigenLake-Org/vector-tools.git
-cd vector-tools
+git clone --branch feature/banking77-dbscan https://github.com/EigenLake-Org/eigenlens.git
+cd eigenlens
 pip install -c requirements-tested.txt '.[server,banking]'
 docker compose --profile qdrant up -d --wait qdrant
 python -m examples.banking77 setup
@@ -248,14 +248,14 @@ Analysis saves assignments, topic terms and an interactive 3D plot in `demo-outp
 After setup, run this from the repository directory to register a dedicated MCP server with the banking limits and prepared records:
 
 ```bash
-codex mcp add vector-tools-banking \
-  --env "VECTOR_ML_DATA=$PWD/.vector-ml/banking77" \
-  -- vector-ml --config "$PWD/config/banking77.json"
+codex mcp add eigenlens-banking \
+  --env "EIGENLENS_DATA=$PWD/.eigenlens/banking77" \
+  -- eigenlens --config "$PWD/config/banking77.json"
 ```
 
 Start a new session with that server enabled, then ask:
 
-> Use vector-tools-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then model their topics with BERTopic. Wait for completion and show cluster sizes, unassigned records, topic terms and examples.
+> Use eigenlens-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then model their topics with BERTopic. Wait for completion and show cluster sizes, unassigned records, topic terms and examples.
 
 The prepared artifact is already in this server's staging directory. The dedicated configuration accepts the full corpus; the generic default server accepts up to 10,000 records.
 
@@ -278,3 +278,11 @@ This starts a local MCP server, discovers its tools, analyzes **62 synthetic rec
 - [Architecture](docs/architecture.md)
 
 For development: `pip install -e '.[server,banking,databases,test]'` then `pytest -q`.
+
+## Migrating from Vector Tools
+
+The project is now **EigenLens**: install `eigenlens`, use `import eigenlens`, and start the MCP server with `eigenlens`. The GitHub repository is `EigenLake-Org/eigenlens`; update an existing checkout with `git remote set-url origin https://github.com/EigenLake-Org/eigenlens.git`.
+
+Existing `import vector_tools` code, module imports, the `vector-ml` command and `python -m vector_tools.server` remain compatibility aliases. New configuration uses `EIGENLENS_*`; previous `VECTOR_ML_*` variables remain supported, with the new names taking precedence. Both adapter entry-point groups are supported; new plugins should use `eigenlens.database_adapters`.
+
+New local storage defaults to `.eigenlens`. An existing `.vector-ml` directory is reused when no explicit data environment variable is supplied and the corresponding new directory does not exist. To keep an existing explicit storage location, set `EIGENLENS_DATA` to that location. Keep the original connection encryption key. Existing Compose project/network/volume identifiers remain `vector-ml` / `vector-ml_default` so upgrades retain stored jobs, connections, Qdrant data and artifacts. Historical result files keep their original provenance.

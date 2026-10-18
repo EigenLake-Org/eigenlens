@@ -1,21 +1,21 @@
 import json
 import pytest
 from starlette.testclient import TestClient
-from vector_tools.config import Config
-from vector_tools.service import Service
-from vector_tools.server import build_server, AccessMiddleware
-from vector_tools.schemas import VTError
+from eigenlens.config import Config
+from eigenlens.service import Service
+from eigenlens.server import build_server, AccessMiddleware
+from eigenlens.schemas import VTError
 
 
 @pytest.fixture
 def uploads(tmp_path,monkeypatch):
-    monkeypatch.setenv('VECTOR_ML_MCP_TOKEN','upload-test-token')
+    monkeypatch.setenv('EIGENLENS_MCP_TOKEN','upload-test-token')
     monkeypatch.setenv('OTHER_TOKEN','other-upload-token')
-    monkeypatch.delenv('VECTOR_ML_DATA',raising=False)
+    monkeypatch.delenv('EIGENLENS_DATA',raising=False)
     config_path=tmp_path/'config.json'
     config_path.write_text(json.dumps({'data_dir':str(tmp_path/'data'),
         'limits':{'max_bytes':4*1024*1024},'callers':{
-            'local':{'token_env':'VECTOR_ML_MCP_TOKEN'},
+            'local':{'token_env':'EIGENLENS_MCP_TOKEN'},
             'other':{'token_env':'OTHER_TOKEN'}}}))
     config=Config(str(config_path));service=Service(config)
     try:

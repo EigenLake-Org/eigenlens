@@ -10,7 +10,7 @@
   },
   "callers": {
     "local": {
-      "token_env": "VECTOR_ML_MCP_TOKEN"
+      "token_env": "EIGENLENS_MCP_TOKEN"
     }
   }
 }

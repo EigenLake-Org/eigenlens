@@ -2,10 +2,10 @@
 import json
 import sqlite3
 import pytest
-import vector_tools as vt
-from vector_tools.artifacts import Store, now
-from vector_tools.execution_context import progress_reporter, report_stage
-from vector_tools.schemas import VTError
+import eigenlens as vt
+from eigenlens.artifacts import Store, now
+from eigenlens.execution_context import progress_reporter, report_stage
+from eigenlens.schemas import VTError
 from test_density import fixture_data, operation
 from test_service import service, wait
 

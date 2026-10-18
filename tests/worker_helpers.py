@@ -1,8 +1,8 @@
 """Pause before the real clustering worker to test queue and cancellation deterministically."""
 from pathlib import Path
 import time
-from vector_tools.artifacts import Store
-from vector_tools.jobs import worker
+from eigenlens.artifacts import Store
+from eigenlens.jobs import worker
 
 def paused_cluster_worker(root, config_path, job_id, owner):
     root = Path(root)

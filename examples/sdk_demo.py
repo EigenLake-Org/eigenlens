@@ -1,12 +1,12 @@
 """Run: python examples/sdk_demo.py. Synthetic vectors; no credentials required."""
 import json
-import vector_tools as vt
-from vector_tools.demo import tickets
+import eigenlens as el
+from eigenlens.demo import tickets
 
 
 def main():
-    data = vt.from_records(tickets(), name="synthetic-support-tickets").materialize()
-    results = vt.analyze(data, [
+    data = el.from_records(tickets(), name="synthetic-support-tickets").materialize()
+    results = el.analyze(data, [
         {"id": "groups", "type": "cluster", "algorithm":"dbscan_search"},
         {"id": "themes", "type": "topics", "clusters_from": "groups", "parameters": {"ngram_max": 2}},
     ])
