@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM python:3.13-slim AS server
+LABEL org.opencontainers.image.source="https://github.com/EigenLake-Org/eigenlens" \
+      org.opencontainers.image.title="EigenLens" \
+      org.opencontainers.image.description="DBSCAN clustering and BERTopic through Python and MCP"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 EIGENLENS_DATA=/data
 WORKDIR /app
 COPY pyproject.toml requirements-tested.txt ./

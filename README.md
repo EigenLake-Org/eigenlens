@@ -16,6 +16,10 @@ pip install 'eigenlens[server,qdrant] @ git+https://github.com/EigenLake-Org/eig
 
 This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
 
+### Prebuilt Docker image
+
+The MCP server and analysis worker are packaged together as `ghcr.io/eigenlake-org/eigenlens:0.1.0`, for Linux AMD64 and ARM64. Deploy the [release Compose file](https://github.com/EigenLake-Org/eigenlens/releases/tag/v0.1.0) without cloning or building source; see [pull and run instructions](docs/worker.md#prebuilt-image).
+
 ## Use your existing Python database client
 
 Pass your application's initialized **QdrantClient** or **WeaviateClient v4** directly. `from_client` detects the SDK; reads start when you call `materialize()`. You keep control of credentials, connection settings, timeouts and closing the client.
@@ -284,6 +288,7 @@ This starts a local MCP server, discovers its tools, analyzes **62 synthetic rec
 ## Documentation
 
 - [Docker worker setup and concurrency](docs/worker.md)
+- [Publish a versioned container image](docs/publishing.md)
 - [MCP connection, chat prompts and exact tool calls](docs/mcp.md)
 - [OpenAI Agents SDK: existing agents, database setup and job progress](docs/openai-agents.md)
 - [Database connections, storage and adapters](docs/databases.md)

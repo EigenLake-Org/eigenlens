@@ -1,0 +1,36 @@
+# Pull prebuilt images; this file never builds source.
+name: eigenlens
+services:
+  worker:
+    image: ${EIGENLENS_IMAGE:-ghcr.io/eigenlake-org/eigenlens:0.1.0}
+    profiles: ["worker"]
+    command: ["eigenlens", "--transport", "http", "--host", "0.0.0.0", "--config", "/app/config/worker.json"]
+    ports: ["127.0.0.1:8020:8000"]
+    environment:
+      EIGENLENS_MCP_TOKEN: ${EIGENLENS_MCP_TOKEN:-}
+      EIGENLENS_WORKERS: ${EIGENLENS_WORKERS:-1}
+      EIGENLENS_TOTAL_WORKING_BYTES: "8589934592"
+      EIGENLENS_CPU_BUDGET: "2"
+      EIGENLENS_CONNECTION_KEY: ${EIGENLENS_CONNECTION_KEY:-}
+      EIGENLENS_DATABASE_TYPE: ${EIGENLENS_DATABASE_TYPE:-}
+      EIGENLENS_DATABASE_URL: ${EIGENLENS_DATABASE_URL:-}
+      EIGENLENS_DATABASE_API_KEY: ${EIGENLENS_DATABASE_API_KEY:-}
+      EIGENLENS_DATABASE_OPTIONS: ${EIGENLENS_DATABASE_OPTIONS:-}
+    volumes: ["worker-data:/data"]
+    init: true
+    mem_limit: 8g
+    cpus: 2
+    restart: unless-stopped
+  qdrant:
+    image: qdrant/qdrant:v1.15.5
+    profiles: ["qdrant"]
+    ports: ["127.0.0.1:6333:6333"]
+    volumes: ["qdrant:/qdrant/storage"]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+volumes:
+  worker-data:
+  qdrant:
