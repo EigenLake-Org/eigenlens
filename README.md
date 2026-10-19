@@ -18,7 +18,7 @@ This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. 
 
 ### Prebuilt Docker image
 
-The MCP server and analysis worker are packaged together as `ghcr.io/eigenlake-org/eigenlens:0.1.0`, for Linux AMD64 and ARM64. Deploy the [release Compose file](https://github.com/EigenLake-Org/eigenlens/releases/tag/v0.1.0) without cloning or building source; see [pull and run instructions](docs/worker.md#prebuilt-image).
+The MCP server and analysis worker are packaged together as **`sourabheigenlake/eigenlake:eigenlens-0.1.0`**, for Linux AMD64 and ARM64. The [Docker Hub repository](https://hub.docker.com/r/sourabheigenlake/eigenlake) is public; no GitHub access, registry login, cloning or local build is needed. See [pull and run instructions](docs/worker.md#prebuilt-image).
 
 ## Use your existing Python database client
 

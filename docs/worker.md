@@ -6,33 +6,32 @@ The MCP server runs PCA/DBSCAN and BERTopic inside isolated job processes. Calle
 
 ### Prebuilt image
 
-Use `ghcr.io/eigenlake-org/eigenlens:0.1.0`. The image supports `linux/amd64` and `linux/arm64`; Docker selects the matching architecture.
+Use the public Docker Hub image `sourabheigenlake/eigenlake:eigenlens-0.1.0`. It supports `linux/amd64` and `linux/arm64`; Docker selects the matching architecture. No GitHub account, registry login or repository clone is needed.
 
-Download the deployment file from the release, without cloning the repository:
+For a **new installation**, create a private runtime configuration and start the MCP worker:
 
 ```bash
 mkdir -p eigenlens-deploy
 cd eigenlens-deploy
-gh release download v0.1.0 --repo EigenLake-Org/eigenlens \
-  --pattern compose.release.yaml
-# Generate these once for a new deployment; retain .env across restarts.
+# Generate once. Retain .env across restarts.
 if [ ! -f .env ]; then
   (umask 077
    printf 'EIGENLENS_MCP_TOKEN=%s\nEIGENLENS_CONNECTION_KEY=%s\nEIGENLENS_WORKERS=1\n' \
      "$(openssl rand -hex 32)" "$(openssl rand -base64 32 | tr '+/' '-_')" > .env)
 fi
-docker compose --env-file .env -f compose.release.yaml --profile worker pull worker
-docker compose --env-file .env -f compose.release.yaml --profile worker \
-  up -d --wait worker
+docker pull sourabheigenlake/eigenlake:eigenlens-0.1.0
+docker run -d --name eigenlens-worker --init --restart unless-stopped \
+  --publish 127.0.0.1:8020:8000 --memory 8g --cpus 2 \
+  --env-file .env --env EIGENLENS_CPU_BUDGET=2 \
+  --volume eigenlens_worker-data:/data \
+  sourabheigenlake/eigenlake:eigenlens-0.1.0
 ```
 
-The MCP endpoint is `http://127.0.0.1:8020/mcp`. Configure clients with the token in the private `.env` file. No host Python or compiler is needed. The release file has no `build` section and uses the same project, service, network and named data volume as the source-based setup. For an existing installation, reuse its token and encryption key; do not generate a replacement key for an existing connections database.
+Connect your MCP client to `http://127.0.0.1:8020/mcp` using the token from `.env`. The server still requires this token even though its Docker image is public. No host Python or compiler is needed. For database tools, add `EIGENLENS_DATABASE_TYPE`, `EIGENLENS_DATABASE_URL`, and any credentials/options to the private runtime environment, or pass connection settings from your application's backend. Database URLs must be reachable from inside the container. See [database setup](databases.md).
 
-The repositories currently require GitHub access to download their release assets. Public GHCR packages can be pulled anonymously; restricted packages require `docker login ghcr.io` with a GitHub classic token carrying `read:packages` and access to the package. The release file can also be copied from the repository.
+Stop the container with `docker stop eigenlens-worker`; its named data volume remains. Preserve the separate encryption key when reusing that volume. Do not generate a replacement key for an existing connections database.
 
-To start the optional local Qdrant service, use the same file with `--profile qdrant up -d --wait qdrant`. Its stored points are in a persistent volume; a new deployment starts empty. Connect an existing database or prepare the [BANKING77 dataset](../README.md#try-the-banking77-demo).
-
-Set `EIGENLENS_IMAGE` in `.env` to a different released version or digest when upgrading. `latest` is available, but use a version or digest for a deployment you need to reproduce. Pull first and allow active jobs to finish before recreating the worker.
+Existing Compose installations can use `compose.release.yaml`, which retains their project, service, network and named volume. The repository release assets still require GitHub repository access; downloading the Docker image does not. Override `EIGENLENS_IMAGE` to choose another released tag or digest. Allow active jobs to finish before recreating the worker. The `eigenlens-latest` tag tracks releases, but use a version or digest for reproducible deployments.
 
 ### Build from source
 
