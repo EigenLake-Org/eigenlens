@@ -97,6 +97,8 @@ jobs:
   publish:
     name: Publish multi-platform release
     needs: build
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -113,6 +115,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish manifest and tags
+        id: manifest
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           TAGS=(--tag "$IMAGE:sha-$GITHUB_SHA")
@@ -125,6 +128,10 @@ jobs:
             "$IMAGE:build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-arm64"
           docker buildx imagetools inspect --raw "$IMAGE:sha-$GITHUB_SHA" > manifest.json
           python3 -c 'import json; m=json.load(open("manifest.json")); p={(i["platform"]["os"], i["platform"]["architecture"]) for i in m["manifests"]}; assert {("linux","amd64"),("linux","arm64")} <= p, p'
+          docker buildx imagetools inspect --format '{{json .Manifest}}' "$IMAGE:sha-$GITHUB_SHA" > manifest-metadata.json
+          DIGEST="$(python3 -c 'import json; print(json.load(open("manifest-metadata.json"))["digest"])')"
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
           echo "Published $IMAGE:sha-$GITHUB_SHA for linux/amd64 and linux/arm64" >> "$GITHUB_STEP_SUMMARY"
       - name: Attach deployment file to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -142,3 +149,16 @@ jobs:
               --title "EigenLens $VERSION" --notes-file release-notes.md
           fi
           gh release upload "$GITHUB_REF_NAME" compose.release.yaml --clobber
+
+  dockerhub:
+    name: Publish to Docker Hub
+    needs: publish
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/publish-dockerhub.yml
+    with:
+      source_digest: ${{ needs.publish.outputs.digest }}
+      release_version: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

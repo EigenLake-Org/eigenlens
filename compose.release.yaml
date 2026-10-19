@@ -2,7 +2,7 @@
 name: eigenlens
 services:
   worker:
-    image: ${EIGENLENS_IMAGE:-ghcr.io/eigenlake-org/eigenlens:0.1.0}
+    image: ${EIGENLENS_IMAGE:-sourabheigenlake/eigenlake:eigenlens-0.1.0}
     profiles: ["worker"]
     command: ["eigenlens", "--transport", "http", "--host", "0.0.0.0", "--config", "/app/config/worker.json"]
     ports: ["127.0.0.1:8020:8000"]

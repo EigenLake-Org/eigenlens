@@ -1,0 +1,149 @@
+name: Publish public Docker Hub image
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_digest:
+        description: Tested GHCR multi-platform image digest
+        required: true
+        default: 'sha256:c119a02c629ee3ef83aeeb8a8eb31144d8c87821b5d229d6f024ac6341187c4c'
+        type: string
+      release_version:
+        description: Version to publish; leave empty for a commit-only mirror
+        required: false
+        default: '0.1.0'
+        type: string
+  workflow_call:
+    inputs:
+      source_digest:
+        required: true
+        type: string
+      release_version:
+        required: false
+        default: ''
+        type: string
+    secrets:
+      DOCKERHUB_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  DOCKERHUB_REPOSITORY: sourabheigenlake/eigenlake
+  IMAGE_PREFIX: eigenlens
+
+concurrency:
+  group: dockerhub-${{ github.repository }}-${{ inputs.release_version || inputs.source_digest }}
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    name: Copy and check ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    outputs:
+      source_commit: ${{ steps.source.outputs.source_commit }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Validate source and version
+        env:
+          SOURCE_DIGEST: ${{ inputs.source_digest }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          [[ "$SOURCE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          VERSION="${RELEASE_VERSION#v}"
+          [[ -z "$VERSION" || "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}@$SOURCE_DIGEST" >> "$GITHUB_ENV"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull the tested image by digest
+        id: source
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker pull --platform "linux/$ARCH" "$IMAGE"
+          COMMIT="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE")"
+          [[ "$COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          echo "source_commit=$COMMIT" >> "$GITHUB_OUTPUT"
+      - name: Check image startup and runtime
+        run: |
+          docker run --detach --name image-smoke \
+            --env EIGENLENS_MCP_TOKEN=ci-smoke-token "$IMAGE"
+          for attempt in $(seq 1 90); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' image-smoke)"
+            if [[ "$status" == healthy ]]; then break; fi
+            sleep 2
+          done
+          [[ "$status" == healthy ]]
+          docker exec -i \
+            --env EIGENLENS_TRANSPORT=http \
+            --env EIGENLENS_MCP_URL=http://127.0.0.1:8000/mcp \
+            --env EIGENLENS_MCP_TOKEN=ci-smoke-token \
+            image-smoke python - < examples/mcp_client.py > smoke.json
+          python3 -c 'import json; t=json.load(open("smoke.json")); jobs=[c["result"] for c in t["trace"] if c["tool"]=="get_job"]; assert jobs[-1]["status"]=="succeeded"; assert len(t["tools"])==13; print("Authenticated MCP, DBSCAN, BERTopic and paginated results passed")'
+      - name: Container diagnostics
+        if: failure()
+        run: docker logs --tail 100 image-smoke || true
+      - name: Stop check container
+        if: always()
+        run: docker rm -f image-smoke || true
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          username: sourabheigenlake
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Push and verify an anonymous pull
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          TARGET="$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$ARCH"
+          docker tag "$IMAGE" "$TARGET"
+          docker push "$TARGET"
+          ANONYMOUS_CONFIG="$(mktemp -d)"
+          DOCKER_CONFIG="$ANONYMOUS_CONFIG" docker pull --platform "linux/$ARCH" "$TARGET"
+          echo "Anonymous pull passed for linux/$ARCH" >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish public multi-platform tags
+    needs: copy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          username: sourabheigenlake
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish and inspect without credentials
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          SOURCE_COMMIT: ${{ needs.copy.outputs.source_commit }}
+        run: |
+          [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          TAGS=(--tag "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-sha-$SOURCE_COMMIT")
+          VERSION="${RELEASE_VERSION#v}"
+          if [[ -n "$VERSION" ]]; then
+            TAGS+=(--tag "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-$VERSION" --tag "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-latest")
+          fi
+          docker buildx imagetools create "${TAGS[@]}" \
+            "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-amd64" \
+            "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-arm64"
+          ANONYMOUS_CONFIG="$(mktemp -d)"
+          DOCKER_CONFIG="$ANONYMOUS_CONFIG" docker manifest inspect \
+            "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-sha-$SOURCE_COMMIT" > manifest.json
+          python3 -c 'import json; m=json.load(open("manifest.json")); p={(i["platform"]["os"],i["platform"]["architecture"]) for i in m["manifests"]}; assert {("linux","amd64"),("linux","arm64")} <= p, p'
+          echo "Public image: $DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-${VERSION:-sha-$SOURCE_COMMIT}" >> "$GITHUB_STEP_SUMMARY"
