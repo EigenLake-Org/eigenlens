@@ -24,18 +24,14 @@ The answer wording is illustrative, not a recorded model comparison. The EigenLe
 
 ## See discovery in action
 
-Follow the selection through analysis, a cluster plot and a representative example:
-
-![Four-step saved-results walkthrough: select 1,236 BANKING77 records, analyze vectors, explore 18 clusters and inspect topic evidence](docs/assets/banking77-discovery.gif)
+![Animated 3D view of 18 DBSCAN clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
 
 **Real public data:** a saved selection of **1,236** payment-related BANKING77 records, analyzed with DBSCAN and BERTopic. Colors show **18 clusters**; gray shows **852 unassigned records**. Every selected record is displayed. PCA provides the visualization coordinates.
 
-This walkthrough illustrates the workflow using saved results; it is not a live retrieval or job recording, a runtime benchmark, or an analysis of the full corpus. [Static preview](docs/assets/banking77-discovery.png) · [Run BANKING77 yourself](#try-the-banking77-demo)
+This is an animation of saved results, not a recording of execution speed or an analysis of the full corpus. [Static preview](docs/assets/banking77-clusters.png) · [Run BANKING77 yourself](#try-the-banking77-demo)
 
 <details>
-<summary><strong>Explore the rotating plot, topics and representative examples</strong></summary>
-
-![Animated 3D view of 18 DBSCAN clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
+<summary><strong>Explore topics and representative examples</strong></summary>
 
 ![Three discovered payment topics with BERTopic phrases and representative banking questions](docs/assets/banking77-topics.gif)
 
