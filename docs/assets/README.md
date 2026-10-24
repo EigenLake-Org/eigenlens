@@ -8,6 +8,8 @@ The main README supports animated demos through ordinary Markdown image links. K
 | --- | --- |
 | `eigenlens-hero.svg` | Product headline and a saved BANKING77 point cloud |
 | `discovery-workflow.svg` | EigenLens alongside an existing agent's retrieval and action tools |
+| `banking77-discovery.gif` | Four-step workflow illustration: saved selection, analysis plan, clusters and evidence |
+| `banking77-discovery.png` | Static cluster-result frame from the walkthrough |
 | `banking77-clusters.gif` | Rotating PCA view of all 1,236 selected records |
 | `banking77-clusters.png` | Static alternative to the rotating view |
 | `banking77-topics.gif` | Three topic views with actual phrases and source examples |
@@ -16,6 +18,8 @@ The main README supports animated demos through ordinary Markdown image links. K
 | `demo/banking77-payments.json` | Saved coordinates, group counts, topic terms, public examples and provenance |
 
 The GIFs animate **saved analysis output**. Their timing does not represent analysis runtime. The fixture is a saved semantic selection for `payment`, not the full 13,069-record corpus. It contains no embedding vectors or database credentials.
+
+The README's RAG comparison uses illustrative answer wording, not captured model responses or a controlled benchmark. Both columns assume the same saved retrieval selection. The workflow GIF illustrates that selection and its analysis; its stages do not represent a live database request or job progress. Cluster/topic counts and the displayed representative record are taken from the fixture.
 
 All selected records come from [mteb/banking77](https://huggingface.co/datasets/mteb/banking77), embedded with [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2). Dataset and model revisions, analysis parameters and library versions are recorded in the fixture. The current EigenLens pipeline produced 18 DBSCAN clusters and 852 unassigned records; BERTopic supplied the topic phrases. The display uses saved PCA coordinates, not input vectors as chart axes.
 
@@ -28,7 +32,7 @@ pip install numpy Pillow
 python scripts/render_readme_media.py
 ```
 
-This validates the saved counts and generates the two GIFs, the static poster and the two SVGs. It does not query a database, download models or rerun clustering. The script uses Arial on macOS or DejaVu Sans on Linux, with Pillow's default font as a fallback. The database logo strip has a [separate renderer](logos/README.md#regenerate-the-strip).
+This validates the saved counts and generates the three GIFs, two static previews and two SVGs. It does not query a database, download models or rerun clustering. The script uses Arial on macOS or DejaVu Sans on Linux, with Pillow's default font as a fallback. The database logo strip has a [separate renderer](logos/README.md#regenerate-the-strip).
 
 ## Add another demo GIF
 

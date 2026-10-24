@@ -6,20 +6,36 @@
 
 Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings into **clusters, topics and representative records** through Python or MCP. Your agent can explore what is in a collection, then investigate the groups it finds.
 
-[Installation](#installation) · [Demo](#see-discovery-in-action) · [Python](#use-your-existing-python-database-client) · [MCP](#connect-mcp-to-a-chat-agent) · [OpenAI Agents SDK](docs/openai-agents.md) · [Docker Hub](https://hub.docker.com/r/sourabheigenlake/eigenlake)
+[Comparison](#what-does-discovery-add) · [Demo](#see-discovery-in-action) · [Installation](#installation) · [Python](#use-your-existing-python-database-client) · [MCP](#connect-mcp-to-a-chat-agent) · [OpenAI Agents SDK](docs/openai-agents.md) · [Docker Hub](https://hub.docker.com/r/sourabheigenlake/eigenlake)
 
-## See discovery in action
+## What does discovery add?
+
+**Same question. Same saved selection of 1,236 records.**
 
 > “What payment issues appear in these banking questions?”
 
-![Animated 3D view of 18 DBSCAN clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
+| Typical retrieval-only RAG | RAG + EigenLens |
+| --- | --- |
+| “Retrieved examples mention pending payments, declined payments and unrecognized payments in the app.” | “Across **1,236 selected records**, DBSCAN found **18 clusters** and left **852 records unassigned**. Discovered topics include payment pending, payment app and payment declined.” |
+| Inspect relevant passages and their sources. | Inspect a cluster plot, group sizes, BERTopic phrases and representative source records. |
+| Follow up by retrieving more evidence. | Follow up with “Show examples from the largest cluster” or “Which records remain unassigned?” |
+
+The answer wording is illustrative, not a recorded model comparison. The EigenLens counts and topics come from the saved BANKING77 analysis below. RAG can also perform analytics when equipped with tools; EigenLens supplies the clustering and topic-analysis tools alongside retrieval.
+
+## See discovery in action
+
+Follow the selection through analysis, a cluster plot and a representative example:
+
+![Four-step saved-results walkthrough: select 1,236 BANKING77 records, analyze vectors, explore 18 clusters and inspect topic evidence](docs/assets/banking77-discovery.gif)
 
 **Real public data:** a saved selection of **1,236** payment-related BANKING77 records, analyzed with DBSCAN and BERTopic. Colors show **18 clusters**; gray shows **852 unassigned records**. Every selected record is displayed. PCA provides the visualization coordinates.
 
-This is an animation of saved results, not a recording of execution speed or an analysis of the full corpus. [Static preview](docs/assets/banking77-clusters.png) · [Run BANKING77 yourself](#try-the-banking77-demo)
+This walkthrough illustrates the workflow using saved results; it is not a live retrieval or job recording, a runtime benchmark, or an analysis of the full corpus. [Static preview](docs/assets/banking77-discovery.png) · [Run BANKING77 yourself](#try-the-banking77-demo)
 
 <details>
-<summary><strong>Explore topics and representative examples</strong></summary>
+<summary><strong>Explore the rotating plot, topics and representative examples</strong></summary>
+
+![Animated 3D view of 18 DBSCAN clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
 
 ![Three discovered payment topics with BERTopic phrases and representative banking questions](docs/assets/banking77-topics.gif)
 

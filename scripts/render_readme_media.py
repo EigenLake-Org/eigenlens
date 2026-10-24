@@ -139,6 +139,62 @@ def topic_view(data, group):
     return im
 
 
+def discovery_story(data, output):
+    """Illustrate the workflow with saved results, without simulated live status."""
+    count = len(data["points"])
+    steps = ["1  SELECT RECORDS", "2  ANALYZE VECTORS",
+             "3  EXPLORE CLUSTERS", "4  INSPECT EVIDENCE"]
+    frames = []
+    for step in range(4):
+        if step < 2:
+            # The selection view does not disclose the eventual assignments.
+            im, draw, _ = scene(data, 0, focus=-2)
+            header(draw, "Start with the retrieved selection" if step == 0
+                   else "Analyze the existing vectors",
+                   "BANKING77  /  saved results  /  workflow illustration")
+            box(draw, (950, 176, 1242, 635))
+            text(draw, (970, 198), f"{count:,}", 38, WHITE, True)
+            text(draw, (970, 247), "SELECTED RECORDS", 14, MUTED, True)
+            text(draw, (970, 305), "QUERY", 14, CYAN, True)
+            text(draw, (970, 335), data["source"]["query"], 26, WHITE, True)
+            text(draw, (970, 395), "SCOPE", 14, CYAN, True)
+            text(draw, (970, 425), "Saved retrieval results", 19, WHITE)
+            text(draw, (970, 498), "Every selected record", 19, MUTED)
+            text(draw, (970, 525), "goes into the analysis.", 19, MUTED)
+            if step == 1:
+                labels = [("PCA + DBSCAN", "Discover groups"),
+                          ("BERTopic", "Extract topic phrases")]
+                for i, (title, subtitle) in enumerate(labels):
+                    left = 100 + i * 420
+                    box(draw, (left, 330, left+345, 444), outline=CYAN)
+                    text(draw, (left+24, 352), title, 26, WHITE, True)
+                    text(draw, (left+24, 393), subtitle, 19, MUTED)
+                draw.line((461, 387, 500, 387), fill=CYAN, width=3)
+                draw.polygon([(500, 387), (490, 381), (490, 393)], fill=CYAN)
+                text(draw, (280, 474), "Use stored embeddings; no record re-embedding", 20, CYAN)
+        elif step == 2:
+            im = overview(data, 0)
+            draw = ImageDraw.Draw(im)
+        else:
+            group = next(g for g in data["groups"] if g["cluster_id"] != -1)
+            im = topic_view(data, group)
+            draw = ImageDraw.Draw(im)
+        for i, label in enumerate(steps):
+            left = 42 + i * 305
+            active = i == step
+            box(draw, (left, 141, left+292, 166),
+                fill="#0b2634" if active else BG,
+                outline=CYAN if active else LINE, radius=6)
+            text(draw, (left+12, 146), label, 13, CYAN if active else MUTED, active)
+        # Every frame declares its scope independently of the README caption.
+        draw.rectangle((0, 644, W, H), fill=BG)
+        text(draw, (42, 650), f"Saved BANKING77 selection  /  {count:,} records  /  PCA display coordinates", 17, MUTED)
+        text(draw, (42, 680), "Workflow illustration from saved output. Not a live recording or runtime benchmark.", 15, MUTED)
+        frames.append(im)
+    frames[2].save(output/"banking77-discovery.png", optimize=True)
+    gif(frames, output/"banking77-discovery.gif", [2600, 2600, 3400, 4600])
+
+
 def gif(frames, path, durations):
     # Use every scene to retain the colors of topics absent from the first frame.
     sheet = Image.new("RGB", (W, H * len(frames)))
@@ -228,6 +284,7 @@ def main():
     assert len(counts)-1 == data["analysis"]["cluster_count"]
     assert {g["cluster_id"]: g["count"] for g in data["groups"]} == dict(counts)
     args.output.mkdir(parents=True, exist_ok=True)
+    discovery_story(data, args.output)
     frames = [overview(data, angle) for angle in np.linspace(0, 360, args.frames, endpoint=False)]
     frames[0].save(args.output/"banking77-clusters.png", optimize=True)
     gif(frames, args.output/"banking77-clusters.gif", 160)
@@ -235,7 +292,8 @@ def main():
     gif([topic_view(data, g) for g in focus], args.output/"banking77-topics.gif", 2800)
     hero(data, args.output/"eigenlens-hero.svg")
     workflow(args.output/"discovery-workflow.svg")
-    for name in ["banking77-clusters.gif", "banking77-topics.gif", "banking77-clusters.png"]:
+    for name in ["banking77-discovery.gif", "banking77-discovery.png",
+                 "banking77-clusters.gif", "banking77-topics.gif", "banking77-clusters.png"]:
         print(f"{name}: {(args.output/name).stat().st_size:,} bytes")
 
 
