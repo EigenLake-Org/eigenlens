@@ -1,6 +1,4 @@
-# EigenLens
-
-<img src="docs/assets/eigenlens-logo.png" alt="EigenLens logo: a cyan and mint lens with clustered points beside the EigenLens wordmark" width="420">
+# <img src="docs/assets/eigenlake-mark.svg" alt="EigenLake logo" width="40" height="40"> EigenLens
 
 ![EigenLens — Agents can retrieve. Now let them discover.](docs/assets/eigenlens-hero.svg)
 
