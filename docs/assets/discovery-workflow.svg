@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="430" viewBox="0 0 1440 430" role="img" aria-labelledby="title desc">
+<title id="title">Add discovery beside retrieval and existing action tools</title>
+<desc id="desc">An existing agent keeps its retrieval and action tools, and calls EigenLens through MCP or Python. Retrieval and discovery use existing vector data.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9" fill="none" stroke="#6a899b"/></marker></defs>
+<rect width="1440" height="430" rx="18" fill="#06121c"/>
+<g fill="none" stroke="#496a7b" stroke-width="2" marker-end="url(#arrow)">
+<path d="M720 105 V136 H250 V174"/><path d="M720 105 V174"/><path d="M720 105 V136 H1190 V174"/>
+<path d="M720 340 V294"/><path d="M250 340 V294"/></g>
+<g font-family="Inter,Arial,sans-serif" text-anchor="middle">
+<rect x="485" y="22" width="470" height="83" rx="12" fill="#0b2634" stroke="#20d8e9"/>
+<text x="720" y="58" fill="#eef4f8" font-size="25" font-weight="700">Your existing agent</text>
+<text x="720" y="83" fill="#97afbf" font-size="17">Same model, prompts and orchestration</text>
+<rect x="60" y="175" width="380" height="119" rx="12" fill="#191e23" stroke="#b49145"/>
+<text x="250" y="211" fill="#f7c768" font-size="14" letter-spacing="2">RETRIEVE</text>
+<text x="250" y="244" fill="#eef4f8" font-size="25" font-weight="700">Your existing RAG</text>
+<text x="250" y="272" fill="#97afbf" font-size="17">Find evidence for a known question</text>
+<rect x="530" y="175" width="380" height="119" rx="12" fill="#0b2634" stroke="#20d8e9" stroke-width="2"/>
+<text x="720" y="211" fill="#20d8e9" font-size="14" letter-spacing="2">DISCOVER / MCP OR PYTHON SDK</text>
+<text x="720" y="244" fill="#eef4f8" font-size="25" font-weight="700">EigenLens</text>
+<text x="720" y="272" fill="#97afbf" font-size="17">Clusters, topics and representative records</text>
+<rect x="1000" y="175" width="380" height="119" rx="12" fill="#171e30" stroke="#a28ada"/>
+<text x="1190" y="211" fill="#b29aff" font-size="14" letter-spacing="2">ACT</text>
+<text x="1190" y="244" fill="#eef4f8" font-size="25" font-weight="700">Your existing tools</text>
+<text x="1190" y="272" fill="#97afbf" font-size="17">SQL, APIs and application workflows</text>
+<rect x="60" y="340" width="850" height="62" rx="10" fill="#0b1d2a" stroke="#1c3948"/>
+<text x="485" y="378" fill="#b2c5d2" font-size="20">Existing vector data + text + metadata</text>
+</g></svg>

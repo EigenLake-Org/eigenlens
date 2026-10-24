@@ -1,28 +1,89 @@
 # EigenLens
 
-Cluster existing embeddings and model their topics through Python or an MCP job server.
+![EigenLens — Agents can retrieve. Now let them discover.](docs/assets/eigenlens-hero.svg)
 
-- **Clustering:** PCA + DBSCAN parameter search.
-- **Topics:** [BERTopic](https://maartengr.github.io/BERTopic/getting_started/manual/manual.html) keywords and phrases from the discovered clusters.
-- **Jobs:** queueing, cancellation and saved results. Default: **1 worker**; configurable up to 16.
+**A discovery layer for agents over the vector data you already have.**
+
+Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings into **clusters, topics and representative records** through Python or MCP. Your agent can explore what is in a collection, then investigate the groups it finds.
+
+[Installation](#installation) · [Demo](#see-discovery-in-action) · [Python](#use-your-existing-python-database-client) · [MCP](#connect-mcp-to-a-chat-agent) · [OpenAI Agents SDK](docs/openai-agents.md) · [Docker Hub](https://hub.docker.com/r/sourabheigenlake/eigenlake)
+
+## See discovery in action
+
+> “What payment issues appear in these banking questions?”
+
+![Animated 3D view of 18 DBSCAN clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
+
+**Real public data:** a saved selection of **1,236** payment-related BANKING77 records, analyzed with DBSCAN and BERTopic. Colors show **18 clusters**; gray shows **852 unassigned records**. Every selected record is displayed. PCA provides the visualization coordinates.
+
+This is an animation of saved results, not a recording of execution speed or an analysis of the full corpus. [Static preview](docs/assets/banking77-clusters.png) · [Run BANKING77 yourself](#try-the-banking77-demo)
+
+<details>
+<summary><strong>Explore topics and representative examples</strong></summary>
+
+![Three discovered payment topics with BERTopic phrases and representative banking questions](docs/assets/banking77-topics.gif)
+
+The same analysis provides topic phrases and source examples for each group. These labels come from BERTopic; no language model was used to name this demo's clusters.
+
+</details>
+
+## From retrieval to discovery
+
+RAG helps an agent find evidence for a question. EigenLens helps it examine the structure within that evidence or a complete collection.
+
+| Your agent asks | EigenLens returns |
+| --- | --- |
+| “What groups exist in these records?” | DBSCAN clusters, sizes and assignments |
+| “What is each group about?” | BERTopic keywords and phrases |
+| “Show the evidence behind this topic.” | Representative record IDs and source text |
+| “Which records do not belong to a group?” | Unassigned records, marked `-1` |
+| “What is my analysis doing?” | Job status, detailed stages and available counters |
+
+![Your existing agent uses RAG, EigenLens discovery and existing action tools over existing data](docs/assets/discovery-workflow.svg)
+
+**Use stored embeddings.** Analysis does not re-embed your records. DBSCAN discovers groups; BERTopic uses those assignments to extract topic terms through its manual workflow. Results include coordinates that your agent or application can plot.
+
+**Run work in the background.** The MCP server queues analysis in isolated processes, supports cancellation, saves results and reuses identical completed analyses. Default concurrency is **1 worker**, configurable up to 16. More workers run more jobs concurrently; they do not distribute a single analysis.
 
 ## Installation
 
-Requires Python 3.11 or newer. Install the MCP server with pip from this repository's implementation branch:
+### Python and local MCP
+
+Requires **Python 3.11+** and access to the source repository:
 
 ```bash
 pip install 'eigenlens[server,qdrant] @ git+https://github.com/EigenLake-Org/eigenlens.git@main'
 ```
 
-This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; use `[server,databases]` to install all five. More backends can provide [adapter plugins](docs/databases.md#add-another-database). The BANKING77 demo below adds dataset dependencies.
+This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; `[server,databases]` installs all five. This is a pip install from Git, not a PyPI release.
 
-### Prebuilt Docker image
+### Public Docker image
 
-The MCP server and analysis worker are packaged together as **`sourabheigenlake/eigenlake:eigenlens-0.1.0`**, for Linux AMD64 and ARM64. The [Docker Hub repository](https://hub.docker.com/r/sourabheigenlake/eigenlake) is public; no GitHub access, registry login, cloning or local build is needed. See [pull and run instructions](docs/worker.md#prebuilt-image).
+The MCP server and analysis worker are available together for Linux AMD64 and ARM64:
+
+```bash
+docker pull sourabheigenlake/eigenlake:eigenlens-0.1.0
+```
+
+**No repository clone or registry login is needed to pull the image.** Follow the [Docker quickstart](docs/worker.md#prebuilt-image) to set the private runtime configuration, start the worker and connect to `http://127.0.0.1:8020/mcp` with its bearer token.
+
+## Connect your vector database
+
+![Supported adapters: Qdrant, Pinecone, Milvus, Weaviate and pgvector](docs/assets/vector-databases.png)
+
+Read existing vectors, text and metadata through **Qdrant, Pinecone, Milvus, Weaviate or PostgreSQL/pgvector** adapters. Source database access is read-only. `get_capabilities` reports which drivers are installed.
+
+| Use case | Where connection settings go |
+| --- | --- |
+| Existing Python application | Pass your initialized Qdrant or Weaviate client to `el.from_client` |
+| Agent using MCP | Call `connect_database` with database type, URL, credentials and options; retain its returned `connection_id` |
+| Server-managed local default | Set `EIGENLENS_DATABASE_TYPE`, `EIGENLENS_DATABASE_URL` and optional credentials/options in the server environment |
+
+MCP connections are encrypted in `<EIGENLENS_DATA>/connections.sqlite` and scoped to the authenticated caller. Retain `EIGENLENS_CONNECTION_KEY` separately across restarts. The database URL must be reachable **from the MCP server**. See [connection settings, storage and backend limitations](docs/databases.md).
+
+For a focused question, retrieve a bounded search selection using the collection's embedding model. To analyze a whole collection, omit the query: the adapter reads every page or fails at configured limits. Analysis processes **all returned records**. A top-k search does not establish that every semantic match was retrieved.
 
 ## Use your existing Python database client
-
-Pass your application's initialized **QdrantClient** or **WeaviateClient v4** directly. `from_client` detects the SDK; reads start when you call `materialize()`. You keep control of credentials, connection settings, timeouts and closing the client.
 
 ```python
 import eigenlens as el
@@ -31,196 +92,52 @@ from qdrant_client import QdrantClient
 client = QdrantClient(url="http://localhost:6333")
 try:
     data = el.from_client(
-        client, collection="banking77_minilm",
-        limits=el.Limits(max_rows=15000, max_bytes=256 * 1024 * 1024,
-                         max_working_bytes=6 * 1024**3, max_seconds=1800),
+        client,
+        collection="your_collection",
+        text_field="text",
     ).materialize()
-    results = el.analyze(data, [
-        {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
-        {"id": "themes", "type": "topics", "clusters_from": "groups",
-         "parameters": {"ngram_max": 2}},
-    ])
-    print(results["groups"].summary())
-    print(results["themes"].summary())
+
 finally:
     client.close()
+
+results = el.analyze(data, [
+    {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
+    {"id": "themes", "type": "topics", "algorithm": "bertopic",
+     "clusters_from": "groups", "parameters": {"ngram_max": 2}},
+])
+print(results["groups"].summary())
+print(results["themes"].summary())
 ```
 
-For Weaviate, install the `weaviate` extra and pass its connected client:
-
-```python
-import weaviate
-import eigenlens as el
-
-with weaviate.connect_to_local() as client:
-    data = el.from_client(client, collection="Questions", text_field="content").materialize()
-    groups = el.cluster(data)
-    themes = el.topics(data, groups, ngram_max=2)
-```
-
-These examples read the entire collection across pages, or fail at configured limits. They use stored embeddings. To cluster search results, pass `query_vector` and `search_limit`; generate that query vector with the same model used for the collection. Set `vector_field` only when the collection has multiple dense vector fields. See [Python client options and MCP handoff](docs/databases.md#existing-python-sdk-clients).
-
-The BANKING77 example uses the demo's larger data, working-memory and time budgets for its full 13,069 records; your machine must have enough available memory for that analysis.
-
-Python analysis runs in your application's process. To submit work to the MCP job server, register the materialized records and call `run_analysis`. A live Python client stays in your application; MCP receives JSON records or connection settings.
+Use your collection name and text field. `from_client` accepts **QdrantClient or WeaviateClient v4**; reads begin at `materialize()`. Python analysis runs in your application's process. [Client options, query vectors and MCP handoff](docs/databases.md#existing-python-sdk-clients)
 
 ## Connect MCP to a chat agent
 
-MCP exposes tools that an agent can call during a conversation. You connect the server once, then ask questions in plain language. The server runs the analysis in background jobs.
+Connect your MCP host to the installed `eigenlens` executable over stdio, or to a running worker through Streamable HTTP. Your agent discovers the tools; analysis runs on the EigenLens worker.
 
-### Local setup with Codex
-
-After installation, register the server:
+For local Codex after pip installation:
 
 ```bash
 codex mcp add eigenlens \
   --env "EIGENLENS_DATA=$HOME/.local/share/eigenlens" \
   -- eigenlens
-codex mcp list
 ```
 
-Start a new Codex session with the server enabled. Codex launches it over stdio; you do not need to run a separate server command. The chat host must be able to find the installed `eigenlens` executable on its PATH. Use one active server per data directory. See the [official Codex MCP commands](https://learn.chatgpt.com/docs/developer-commands#codex-mcp).
+Start a new session with the server enabled. Connect a database, list its collections and retain the connection ID and collection name in the conversation. Other MCP hosts use the same executable or HTTP endpoint. [Connection options and exact tool calls](docs/mcp.md)
 
-Other local MCP hosts can use the same executable, arguments and environment. For a shared Docker server, use the Streamable HTTP URL `http://127.0.0.1:8020/mcp` and its bearer token; see [connection options and uploads](docs/mcp.md#connection-options).
+### Ask in chat
 
-### Ask this in chat
+> Connect to my configured vector database and list its collections.
 
-First [connect your vector database through MCP](#connect-your-vector-database) or [stage a JSONL file](docs/mcp.md#connection-options). Then ask:
+> Search my selected collection for ATM-related records. Report the selection count and search limit. Cluster every retrieved record with DBSCAN, extract BERTopic phrases, and show cluster sizes, unassigned records and examples. Wait for completion and report any failure.
 
-> Use eigenlens to cluster the dataset I supplied with DBSCAN search and model its topics with BERTopic using phrases up to two words. Wait for the job to finish, then show cluster sizes, unassigned records, topic terms and five representative examples for each cluster you discuss. Report any analysis failure.
+> Plot the clusters in 3D, then show five examples from the largest cluster.
 
-The agent registers your input to obtain a dataset ID, starts a job, polls its status, then reads the result IDs. Keep these IDs in the conversation for follow-up questions. For a ready-made dataset, see the [BANKING77 demo](#try-the-banking77-demo) below.
-
-| Ask in chat | Tools the agent uses |
-| --- | --- |
-| “What can you analyze, and what are the limits?” | `get_capabilities` |
-| “Connect to the database configured on this server.” | `connect_database` with no arguments (local default) |
-| “Show my saved database connections.” | `list_connections` |
-| “List collections in my database.” | `list_collections` |
-| “Show clusters in ATM.” | `retrieve_records` with a query → `run_analysis` → `get_job` |
-| “Analyze these supplied vector records.” | `register_records` → `run_analysis` → `get_job` |
-| “What is the analysis doing?” | `get_job` |
-| “Stop this analysis.” | `cancel_job` |
-| “Summarize the clusters and their topics.” | `get_summary` for both results |
-| “Show five examples from cluster 0.” | `get_examples` with the cluster result ID |
-| “Export every record's cluster assignment.” | `get_result_page`, following every page |
-| “Plot the clusters in 3D.” | `get_result_page` for cluster coordinates, then the agent's plotting tool |
-
-Plotting requires a chat client or agent with chart/file rendering tools. MCP returns coordinates and assignments; the BANKING77 Python example also creates a standalone HTML plot.
-
-## Use with the OpenAI Agents SDK
-
-Add EigenLens to an existing Python agent through `MCPServerStreamableHttp` and `agent.mcp_servers`. Your existing tools, such as a weather tool, stay on the same agent. The agent discovers EigenLens tools and invokes them through the SDK; DBSCAN and BERTopic run on the EigenLens worker.
-
-```bash
-pip install 'openai-agents==0.22.2'
-export EIGENLENS_MCP_URL=http://127.0.0.1:8020/mcp
-# Supply OPENAI_API_KEY and the worker's EIGENLENS_MCP_TOKEN privately.
-```
-
-No EigenLens installation or repository clone is needed in the agent application when connecting to an existing HTTP worker. See the **[OpenAI Agents SDK guide](docs/openai-agents.md)** for a complete Python example, database connection setup, adding MCP to your existing agent, and polling job status with detailed stages.
-
-## Connect your vector database
-
-Database connections are managed by this MCP server through read-only adapters. Configure a default on the server, or have your application's connection form call `connect_database` with `db_type`, URL, API key and optional field/model mappings. It returns a caller-owned `connection_id`; your chat keeps that ID and its selected collection. Supply secrets through configuration or the connection form.
-
-### Where to set connection settings
-
-For a local Qdrant default, set these variables in the environment used to launch MCP:
-
-```bash
-# Generate once; retain this key in your private server environment across restarts.
-export EIGENLENS_CONNECTION_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
-export EIGENLENS_DATABASE_TYPE=qdrant
-export EIGENLENS_DATABASE_URL=http://localhost:6333
-# Set EIGENLENS_DATABASE_API_KEY in your private environment for an authenticated database.
-```
-
-For Codex, register the server with these environment settings (replace the earlier generic registration):
-
-```bash
-codex mcp add eigenlens \
-  --env "EIGENLENS_DATA=$HOME/.local/share/eigenlens" \
-  --env "EIGENLENS_CONNECTION_KEY=$EIGENLENS_CONNECTION_KEY" \
-  --env "EIGENLENS_DATABASE_TYPE=$EIGENLENS_DATABASE_TYPE" \
-  --env "EIGENLENS_DATABASE_URL=$EIGENLENS_DATABASE_URL" \
-  --env "EIGENLENS_DATABASE_API_KEY=${EIGENLENS_DATABASE_API_KEY:-}" \
-  -- eigenlens
-```
-
-Start a new session and ask: **“Connect to the configured database and list its collections.”** The no-argument default is available to caller `local`. Other authenticated callers supply their own connection settings. For Docker, keep the same settings in a private `.env` file; the worker receives them through Compose. Its local Qdrant URL is `http://qdrant:6333`. See [database setup and exact MCP calls](docs/databases.md).
-
-Saved connections live in `<EIGENLENS_DATA>/connections.sqlite` (Docker: `/data/connections.sqlite` in `worker-data`). URLs, credentials and options are encrypted. Keep `EIGENLENS_CONNECTION_KEY` outside that database and preserve it across restarts. Connections are scoped to the authenticated caller; chats sharing a server caller identity share that caller's access.
-
-For Qdrant, users provide:
-
-| Setting | Example | Purpose |
-| --- | --- | --- |
-| Database URL | `http://localhost:6333` or your Qdrant cloud URL | Address reachable from the MCP server |
-| API key | Your Qdrant API key | Authentication; optional for local instances without authentication |
-| Collection | `banking77_minilm` or your collection name | Records to search or analyze |
-
-The database API key authenticates Qdrant access. The MCP worker's bearer token authenticates a separate connection to the analysis server.
-
-### Example: “Show clusters in ATM”
-
-After connecting and selecting a collection, ask:
-
-> Search my selected collection for ATM-related records. Cluster every retrieved record with DBSCAN and BERTopic. Show the selection count and search limit, cluster sizes, topics, examples and a 3D plot.
-
-The agent uses this workflow:
-
-1. Call `connect_database` once and `list_collections`, then keep the connection ID and selected collection.
-2. Call `retrieve_records` with `query: "ATM"`. The server resolves a SentenceTransformer model from saved options or stored `embedding_model` metadata and embeds the query in the background. Other embedding providers can supply `query_vector`.
-3. The adapter retrieves stored vectors/text and registers an immutable snapshot, returning `dataset_id`.
-4. Call `run_analysis` with that dataset ID and the DBSCAN/BERTopic plan.
-5. Poll `get_job`, read summaries/examples/result pages, and render the returned coordinates using the chat client's plotting tools.
-
-```text
-connect_database → list_collections → retrieve_records
-                    → run_analysis → get_job
-                    → clusters + BERTopic terms + plot coordinates
-```
-
-The server must know the collection's embedding model; matching dimensions alone does not establish that embedding spaces match. It fails with an actionable error when the model is unknown. Model/field mappings are backend configuration, so users can simply ask questions. To analyze the whole collection, omit `query` and `query_vector`; the adapter traverses all pages without generating a query embedding.
-
-Semantic retrieval is a bounded top-k selection (`search_limit` defaults to 1,000) and returns scope `retrieval_results`. Whole-collection retrieval returns `complete_selection` or fails at row/byte/time limits without registering a partial dataset. Analysis processes all returned records. These counts do not imply every semantic match in the database. External clients can still supply records using `register_records` or [staged JSONL uploads](docs/mcp.md#connection-options).
-
-Supported database adapters: **Qdrant, Pinecone, Milvus, Weaviate and PostgreSQL/pgvector**. `get_capabilities` reports which drivers are installed. Pinecone full scans require serverless indexes; pgvector uses vector tables in the configured schema; Weaviate requires its HTTP and gRPC endpoints. The [database guide](docs/databases.md) covers options and backend limitations.
-
-## Reuse completed analysis
-
-`run_analysis` automatically reuses successful results for the same caller when the exact registered snapshot, selection scope/provenance, operations, limits and analysis implementation/dependency versions match. A new dataset ID containing identical records can hit the cache. Changed vectors, text, metadata or settings cause a fresh job. Failed, cancelled and in-flight jobs are not reused; missing result artifacts cause a cache miss.
-
-`run_analysis` and `get_job` return `cache_hit` and `cached_from_job`. A hit creates a completed job record referencing the original owned results without starting another worker. Result timestamps, materialized artifact IDs and execution host/PID describe that original computation. Cache metadata persists in `metadata.sqlite` across server restarts. Registered snapshots and results still require manual retention management.
-
-To request a fresh computation, include `"execution": {"use_cache": false}` in the `run_analysis` arguments. Normal cache reuse is enabled by default. Explicit idempotency keys continue to identify the exact request, independently of result reuse. See [performance and CPU/memory settings](docs/performance.md).
-
-## All MCP tools
-
-These are tool calls made by your agent, not terminal commands. Optional arguments are marked `?`.
-
-| Tool | Arguments | What it returns |
-| --- | --- | --- |
-| `get_capabilities` | None | Algorithms, supported parameters and server limits |
-| `connect_database` | `db_type?`, `url?`, `api_key?`, `options?`, `name?` | Saved `connection_id`; no arguments uses the local server default |
-| `list_connections` | None | This caller's saved connection IDs and labels |
-| `list_collections` | `connection_id` | Collection/index/table names |
-| `retrieve_records` | `connection_id`, `collection`; `query?` **or** `query_vector?`, `search_limit?` | Registered `dataset_id`, exact supplied count and selection scope |
-| `disconnect_database` | `connection_id` | Removes the saved connection; existing datasets/results remain |
-| `register_records` | `records` **or** `artifact_name`; `selection_scope?` | `dataset_id` and registered count |
-| `run_analysis` | `dataset_id`, `operations`; `execution?`, `idempotency_key?` | Background job with `job_id` |
-| `get_job` | `job_id` | Status plus stage details/counters in `info`; result IDs on success or an error on failure |
-| `cancel_job` | `job_id` | Actual job outcome after cancellation |
-| `get_summary` | `result_id` | Compact counts, parameters, scope and provenance |
-| `get_examples` | `result_id`; `cluster_id?`, `limit?` (default 5, range 1–100) | Representative record IDs and text excerpts |
-| `get_result_page` | `result_id`; `cursor?`, `limit?` (default 100, range 1–1,000) | Assignment/coordinate or topic rows, plus `next_cursor` |
-
-There are **13 MCP tools**. See [analysis calls](docs/mcp.md) and [database calls](docs/databases.md) for exact JSON. Summaries are compact; use result pages for the full output. DBSCAN keeps up to five representative examples per cluster. Cluster `-1` is unassigned data.
+Plotting requires chart or file-rendering tools in the agent application. EigenLens returns assignments and coordinates; the BANKING77 example also writes an interactive HTML plot.
 
 ### The clustering call
 
-Clustering runs through `run_analysis`. Replace the dataset ID with the one returned by `register_records`:
+After `retrieve_records` or `register_records` returns a dataset ID, the agent calls:
 
 ```json
 {
@@ -228,40 +145,59 @@ Clustering runs through `run_analysis`. Replace the dataset ID with the one retu
   "arguments": {
     "dataset_id": "ds_example",
     "operations": [
-      {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"}
+      {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
+      {"id": "themes", "type": "topics", "algorithm": "bertopic",
+       "clusters_from": "groups", "parameters": {"ngram_max": 2}}
     ]
   }
 }
 ```
 
-Poll `get_job` using the returned `job_id`. Keep using `status` for the job outcome; display `info.message` for the current stage (PCA, DBSCAN search, BERTopic, saving results) and `info.completed` / `info.total` when available. These counters describe the current stage, not an overall completion percentage. See the [detailed response](docs/mcp.md#4-get_job).
+Replace `ds_example` with the returned ID. Poll `get_job(job_id)`, then use its result IDs to read summaries, examples and all result pages. Keep `status` for the outcome and display `info.message` for the current stage. Stage counters are not an overall completion percentage.
 
-On success, use `results.groups` as the result ID for summaries, examples and pages. Add a `topics` operation referencing `groups` to include BERTopic; the [complete plan](docs/mcp.md#3-run_analysis) shows that call.
+### All MCP tools
+
+These are agent tool calls, not terminal commands. [Arguments and complete examples](docs/mcp.md) · [Database tool examples](docs/databases.md)
+
+| Tools | Purpose |
+| --- | --- |
+| `get_capabilities` | Discover algorithms, parameters, drivers and limits |
+| `connect_database`, `list_connections`, `disconnect_database` | Manage caller-owned database connections |
+| `list_collections`, `retrieve_records` | Discover collections and register a retrieval snapshot |
+| `register_records` | Register supplied records or a staged JSONL artifact |
+| `run_analysis`, `get_job`, `cancel_job` | Submit, inspect and cancel jobs |
+| `get_summary`, `get_examples`, `get_result_page` | Read counts, evidence and paginated results |
+
+## Use with the OpenAI Agents SDK
+
+Attach EigenLens through `MCPServerStreamableHttp` and your existing agent's `mcp_servers`. Existing tools stay on that agent. **No EigenLens installation or clone is needed in the agent application** when it connects to an HTTP worker.
+
+```bash
+pip install 'openai-agents==0.22.2'
+export EIGENLENS_MCP_URL=http://127.0.0.1:8020/mcp
+# Supply OPENAI_API_KEY and EIGENLENS_MCP_TOKEN privately.
+```
+
+**[Open the complete Agents SDK guide →](docs/openai-agents.md)** for runnable Python, database connections, adding MCP to an existing agent and detailed job progress.
 
 ## Try the BANKING77 demo
 
-[BANKING77](https://huggingface.co/datasets/mteb/banking77) contains 13,069 banking questions across 77 intents. The setup uses the full train and test splits, generates MiniLM embeddings once, and indexes them in Qdrant. No OpenAI API key is needed.
+[BANKING77](https://huggingface.co/datasets/mteb/banking77) contains **13,069 banking questions across 77 intents**. Setup combines the train and test splits, creates MiniLM embeddings once and indexes them in Qdrant. No OpenAI API key is required.
 
-Clone the repository for its example scripts and Docker configuration, then install the demo dependencies with pip:
+The example scripts require source repository access. From a checkout, install and run:
 
 ```bash
-git clone --branch main https://github.com/EigenLake-Org/eigenlens.git
-cd eigenlens
 pip install -c requirements-tested.txt '.[server,banking]'
 docker compose --profile qdrant up -d --wait qdrant
 python -m examples.banking77 setup
 python -m examples.banking77 analyze
 ```
 
-If you already have the repository, run these commands from its directory starting with `pip install`.
-
-The example keeps a local embedding cache and records dataset/model revisions and a checksum. Repeating setup reuses that cache and upserts the same point IDs. It rejects a collection containing a different dataset snapshot. Run `python -m examples.banking77 prepare` to rebuild the cache. Dataset files and vectors are not committed to Git.
-
-Analysis saves assignments, topic terms and an interactive 3D plot in `demo-output/banking77/`. It processes the complete cached corpus. Clustering uses existing vectors; BERTopic uses those assignments to model topics without downloading an embedding model. `-1` remains unassigned data.
+Setup records dataset/model revisions and reuses its local embedding cache. Analysis processes the full cached corpus and saves assignments, topic terms and an interactive 3D plot in `demo-output/banking77/`. The GIF above uses a separate payment-related selection; its cluster counts will differ from a full-corpus analysis.
 
 ### Use the banking dataset in chat
 
-After setup, run this from the repository directory to register a dedicated MCP server with the banking limits and prepared records:
+After setup, register the dedicated demo server from the repository directory:
 
 ```bash
 codex mcp add eigenlens-banking \
@@ -269,30 +205,27 @@ codex mcp add eigenlens-banking \
   -- eigenlens --config "$PWD/config/banking77.json"
 ```
 
-Start a new session with that server enabled, then ask:
+Start a new session and ask:
 
 > Use eigenlens-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then model their topics with BERTopic. Wait for completion and show cluster sizes, unassigned records, topic terms and examples.
 
-The prepared artifact is already in this server's staging directory. The dedicated configuration accepts the full corpus; the generic default server accepts up to 10,000 records.
+The prepared artifact is already staged. The demo configuration accepts the full corpus; the generic local server defaults to a 10,000-record limit. To exercise MCP without a language model, run `python examples/mcp_client.py` after installation; it analyzes 62 synthetic records.
 
-### Run the MCP example without a chat model
+## Scope and limits
 
-From the repository directory after pip installation:
-
-```bash
-python examples/mcp_client.py
-```
-
-This starts a local MCP server, discovers its tools, analyzes **62 synthetic records**, polls the job and reads summaries, examples and every result page. It needs no language-model API key. For the Python SDK alone, run `python examples/sdk_demo.py`.
+EigenLens currently runs bounded, in-memory PCA/DBSCAN analyses and BERTopic topic extraction. It does not provide distributed million-row clustering or time-series change detection. Unassigned records are **not calibrated anomaly scores**. Row, memory and time limits apply; oversized selections fail without silent sampling. See [performance, caching and resource limits](docs/performance.md) and [worker configuration](docs/worker.md).
 
 ## Documentation
 
-- [Docker worker setup and concurrency](docs/worker.md)
-- [Publish a versioned container image](docs/publishing.md)
-- [MCP connection, chat prompts and exact tool calls](docs/mcp.md)
-- [OpenAI Agents SDK: existing agents, database setup and job progress](docs/openai-agents.md)
-- [Database connections, storage and adapters](docs/databases.md)
-- [Record, analysis and upload contracts](docs/contracts.md)
-- [Architecture](docs/architecture.md)
+| Guide | Contents |
+| --- | --- |
+| [MCP](docs/mcp.md) | All 13 tools, exact calls, uploads and job stages |
+| [Database connections](docs/databases.md) | Credentials, adapters and existing Python clients |
+| [OpenAI Agents SDK](docs/openai-agents.md) | Connect EigenLens to an existing agent |
+| [Docker worker](docs/worker.md) | Public image, persistence and worker count |
+| [Contracts](docs/contracts.md) | Records, operations and result formats |
+| [Architecture](docs/architecture.md) | How retrieval, jobs and analysis fit together |
+| [Publishing](docs/publishing.md) | Versioned container releases |
+| [Demo media](docs/assets/README.md) | Add GIFs, regenerate visuals and inspect provenance |
 
 For development: `pip install -e '.[server,banking,databases,test]'` then `pytest -q`.

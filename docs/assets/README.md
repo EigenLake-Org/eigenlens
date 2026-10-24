@@ -1,0 +1,46 @@
+# README demo media
+
+The main README supports animated demos through ordinary Markdown image links. Keep GIFs in this directory so GitHub displays them alongside the repository documentation.
+
+## Included media
+
+| File | Purpose |
+| --- | --- |
+| `eigenlens-hero.svg` | Product headline and a saved BANKING77 point cloud |
+| `discovery-workflow.svg` | EigenLens alongside an existing agent's retrieval and action tools |
+| `banking77-clusters.gif` | Rotating PCA view of all 1,236 selected records |
+| `banking77-clusters.png` | Static alternative to the rotating view |
+| `banking77-topics.gif` | Three topic views with actual phrases and source examples |
+| `vector-databases.png` | Database logo panels adapted from the supplied EigenLens pitch deck |
+| `demo/banking77-payments.json` | Saved coordinates, group counts, topic terms, public examples and provenance |
+
+The GIFs animate **saved analysis output**. Their timing does not represent analysis runtime. The fixture is a saved semantic selection for `payment`, not the full 13,069-record corpus. It contains no embedding vectors or database credentials.
+
+All selected records come from [mteb/banking77](https://huggingface.co/datasets/mteb/banking77), embedded with [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2). Dataset and model revisions, analysis parameters and library versions are recorded in the fixture. The current EigenLens pipeline produced 18 DBSCAN clusters and 852 unassigned records; BERTopic supplied the topic phrases. The display uses saved PCA coordinates, not input vectors as chart axes.
+
+## Regenerate the visuals
+
+From the repository root, with Python 3.11+, NumPy and Pillow installed:
+
+```bash
+pip install numpy Pillow
+python scripts/render_readme_media.py
+```
+
+This validates the saved counts and generates the two GIFs, the static poster and the two SVGs. It does not query a database, download models or rerun clustering. The script uses Arial on macOS or DejaVu Sans on Linux, with Pillow's default font as a fallback. The database logo strip is a separate static asset.
+
+## Add another demo GIF
+
+1. Capture a working example using public or approved demo data. Remove credentials and private records from both the recording and any saved fixture.
+2. Export a readable GIF, ideally no wider than 1,280 pixels and around 2 MB or less. Keep the chart prominent and provide a static PNG alternative.
+3. Add the GIF and preview here. Link them from the root README:
+
+   ```markdown
+   ![Describe the visible analysis and dataset](docs/assets/my-demo.gif)
+
+   [Static preview](docs/assets/my-demo.png)
+   ```
+
+4. Caption the dataset, selection scope and what the demo actually shows. Distinguish recorded interaction from animation of saved results. Do not use playback speed as a runtime claim.
+
+Use a collapsed `<details>` section for extra demos so the main README stays easy to scan. SVGs must be self-contained, without scripts, external fonts or remote images.
