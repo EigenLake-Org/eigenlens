@@ -11,7 +11,8 @@ The main README supports animated demos through ordinary Markdown image links. K
 | `banking77-clusters.gif` | Rotating PCA view of all 1,236 selected records |
 | `banking77-clusters.png` | Static alternative to the rotating view |
 | `banking77-topics.gif` | Three topic views with actual phrases and source examples |
-| `vector-databases.png` | Database logo panels adapted from the supplied EigenLens pitch deck |
+| `vector-databases.png` | Official database artwork on a shared background; [sources and regeneration](logos/README.md) |
+| `logos/` | Source SVG assets from the vendors and PostgreSQL project |
 | `demo/banking77-payments.json` | Saved coordinates, group counts, topic terms, public examples and provenance |
 
 The GIFs animate **saved analysis output**. Their timing does not represent analysis runtime. The fixture is a saved semantic selection for `payment`, not the full 13,069-record corpus. It contains no embedding vectors or database credentials.
@@ -27,7 +28,7 @@ pip install numpy Pillow
 python scripts/render_readme_media.py
 ```
 
-This validates the saved counts and generates the two GIFs, the static poster and the two SVGs. It does not query a database, download models or rerun clustering. The script uses Arial on macOS or DejaVu Sans on Linux, with Pillow's default font as a fallback. The database logo strip is a separate static asset.
+This validates the saved counts and generates the two GIFs, the static poster and the two SVGs. It does not query a database, download models or rerun clustering. The script uses Arial on macOS or DejaVu Sans on Linux, with Pillow's default font as a fallback. The database logo strip has a [separate renderer](logos/README.md#regenerate-the-strip).
 
 ## Add another demo GIF
 

@@ -69,7 +69,7 @@ docker pull sourabheigenlake/eigenlake:eigenlens-0.1.0
 
 ## Connect your vector database
 
-![Supported adapters: Qdrant, Pinecone, Milvus, Weaviate and pgvector](docs/assets/vector-databases.png)
+![Supported adapters: Qdrant, Pinecone, Milvus, Weaviate and PostgreSQL with pgvector](docs/assets/vector-databases.png)
 
 Read existing vectors, text and metadata through **Qdrant, Pinecone, Milvus, Weaviate or PostgreSQL/pgvector** adapters. Source database access is read-only. `get_capabilities` reports which drivers are installed.
 
