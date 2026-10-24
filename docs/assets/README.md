@@ -6,6 +6,7 @@ The main README supports animated demos through ordinary Markdown image links. K
 
 | File | Purpose |
 | --- | --- |
+| `eigenlens-logo.png` | Primary horizontal EigenLens logo; [design prompt](logo-prompt.md) |
 | `eigenlens-hero.svg` | Product headline and a saved BANKING77 point cloud |
 | `discovery-workflow.svg` | EigenLens alongside an existing agent's retrieval and action tools |
 | `rag-vs-eigenlens.gif` | Illustrative two-column chat: typed question, RAG examples, EigenLens groups and a source follow-up |
