@@ -3,10 +3,10 @@
 The release workflow builds and tests the image in GHCR, then mirrors that exact multi-platform digest to the public Docker Hub repository:
 
 ```text
-eigenlake/eigenlens:eigenlens-0.1.0
+eigenlake/eigenlens:0.1.0
 ```
 
-Docker Hub tags use the `eigenlens-` prefix so this repository can contain more than one image component. The private source repository and GHCR package remain available to maintainers.
+Each component has its own Docker Hub repository. Tags are plain versions such as `0.1.0`, `latest`, or `sha-<source-commit>`. The private source repository and GHCR package remain available to maintainers.
 
 ## Create a version
 
@@ -19,7 +19,7 @@ git push origin v0.1.1
 
 Use a new tag/version for each release. Do not move an existing release tag. The workflow accepts stable tags of the form `vMAJOR.MINOR.PATCH`.
 
-It builds independently on native AMD64 and ARM64 runners. Each architecture must start successfully and pass an authenticated MCP test covering DBSCAN, BERTopic, summaries, examples and all result pages. Only then does the GHCR publish job create its multi-platform version and commit tags. The Docker Hub workflow pulls the published index by immutable digest, checks each native image, pushes it, and verifies anonymous pulls before publishing `eigenlens-VERSION`, `eigenlens-latest` and `eigenlens-sha-<source-commit>` tags. Architecture build tags are intermediate artifacts, not deployment targets. A failed architecture leaves the previous release tags intact.
+It builds independently on native AMD64 and ARM64 runners. Each architecture must start successfully and pass an authenticated MCP test covering DBSCAN, BERTopic, summaries, examples and all result pages. Only then does the GHCR publish job create its multi-platform version and commit tags. The Docker Hub workflow pulls the published index by immutable digest, checks each native image, pushes it, and verifies anonymous pulls before publishing `VERSION`, `latest` and `sha-<source-commit>` tags. Architecture build tags are intermediate artifacts, not deployment targets. A failed architecture leaves the previous release tags intact.
 
 The workflow creates a GitHub release and attaches `compose.release.yaml`. Maintainers can use that asset; the [worker guide](worker.md#prebuilt-image) also provides a direct public-image setup without GitHub access. Qdrant uses its upstream image and is not republished.
 
@@ -43,8 +43,8 @@ The Docker Hub repository is public. End users do not need a Docker Hub or GitHu
 After publication, verify the manifest:
 
 ```bash
-docker buildx imagetools inspect eigenlake/eigenlens:eigenlens-0.1.0
-docker pull eigenlake/eigenlens:eigenlens-0.1.0
+docker buildx imagetools inspect eigenlake/eigenlens:0.1.0
+docker pull eigenlake/eigenlens:0.1.0
 ```
 
 The manifest must include `linux/amd64` and `linux/arm64`. The build logs and GitHub release identify the source commit. See the [Docker Hub documentation](https://docs.docker.com/docker-hub/repos/manage/hub-images/push/) for pushing image tags.

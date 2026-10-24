@@ -32,7 +32,6 @@ permissions:
 
 env:
   DOCKERHUB_REPOSITORY: eigenlake/eigenlens
-  IMAGE_PREFIX: eigenlens
 
 concurrency:
   group: dockerhub-${{ github.repository }}-${{ inputs.release_version || inputs.source_digest }}
@@ -110,7 +109,7 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
-          TARGET="$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$ARCH"
+          TARGET="$DOCKERHUB_REPOSITORY:build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-$ARCH"
           docker tag "$IMAGE" "$TARGET"
           docker push "$TARGET"
           ANONYMOUS_CONFIG="$(mktemp -d)"
@@ -134,16 +133,16 @@ jobs:
           SOURCE_COMMIT: ${{ needs.copy.outputs.source_commit }}
         run: |
           [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
-          TAGS=(--tag "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-sha-$SOURCE_COMMIT")
+          TAGS=(--tag "$DOCKERHUB_REPOSITORY:sha-$SOURCE_COMMIT")
           VERSION="${RELEASE_VERSION#v}"
           if [[ -n "$VERSION" ]]; then
-            TAGS+=(--tag "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-$VERSION" --tag "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-latest")
+            TAGS+=(--tag "$DOCKERHUB_REPOSITORY:$VERSION" --tag "$DOCKERHUB_REPOSITORY:latest")
           fi
           docker buildx imagetools create "${TAGS[@]}" \
-            "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-amd64" \
-            "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-arm64"
+            "$DOCKERHUB_REPOSITORY:build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-amd64" \
+            "$DOCKERHUB_REPOSITORY:build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-arm64"
           ANONYMOUS_CONFIG="$(mktemp -d)"
           DOCKER_CONFIG="$ANONYMOUS_CONFIG" docker manifest inspect \
-            "$DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-sha-$SOURCE_COMMIT" > manifest.json
+            "$DOCKERHUB_REPOSITORY:sha-$SOURCE_COMMIT" > manifest.json
           python3 -c 'import json; m=json.load(open("manifest.json")); p={(i["platform"]["os"],i["platform"]["architecture"]) for i in m["manifests"]}; assert {("linux","amd64"),("linux","arm64")} <= p, p'
-          echo "Public image: $DOCKERHUB_REPOSITORY:$IMAGE_PREFIX-${VERSION:-sha-$SOURCE_COMMIT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Public image: $DOCKERHUB_REPOSITORY:${VERSION:-sha-$SOURCE_COMMIT}" >> "$GITHUB_STEP_SUMMARY"
