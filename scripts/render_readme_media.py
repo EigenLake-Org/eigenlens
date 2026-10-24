@@ -281,7 +281,6 @@ def comparison_chat(data, output):
             if phase == 2:
                 box(draw, (670, 350, 1222, 420), fill=BG)
                 text(draw, (690, 365), "Finding groups and topic phrases...", 21, CYAN)
-                text(draw, (690, 395), "Illustrated analysis step", 13, MUTED)
         if phase >= 3:
             response = (f'The largest group contains {selected[0]["count"]} records. '
                         'Here is a representative example.' if phase == 6
@@ -296,7 +295,7 @@ def comparison_chat(data, output):
                 text(draw, (x+12, 321), value, 24, WHITE, True)
                 text(draw, (x+12, 352), label, 11, MUTED, True)
             if phase < 6:
-                text(draw, (670, 387), "3 OF 18 GROUPS / SIMPLIFIED TOPIC NAMES", 11, MUTED, True)
+                text(draw, (670, 387), "3 OF 18 DISCOVERED TOPICS", 11, MUTED, True)
                 for i, group in enumerate(selected):
                     y = 414+i*56
                     text(draw, (670, y), display_names.get(group["label"], group["label"]), 17)
@@ -317,8 +316,8 @@ def comparison_chat(data, output):
                 box(draw, (670, 566, 1222, 636), fill=BG, radius=9)
                 text(draw, (684, 575), "SOURCE EXAMPLE", 11, CYAN, True)
                 paragraph(draw, (684, 597), example["text"], 520, size=19)
-        text(draw, (36, 670), "Illustrative chat / real saved BANKING77 counts and examples / simplified topic names", 15, MUTED)
-        text(draw, (36, 695), "Animation is not a live agent recording or a runtime benchmark. Gray plot points are unassigned records.", 13, MUTED)
+        text(draw, (36, 670), f"BANKING77 demo / {count:,} selected records / DBSCAN + BERTopic", 15, MUTED)
+        text(draw, (36, 695), "Gray plot points are unassigned records.", 13, MUTED)
         return im
 
     frames, durations = [], []

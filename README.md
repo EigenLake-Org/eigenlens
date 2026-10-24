@@ -16,8 +16,6 @@ Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings in
 
 [Static comparison](docs/assets/rag-vs-eigenlens.png)
 
-The chat wording and simplified topic names are illustrative. Counts, plot coordinates and quoted records come from the saved BANKING77 analysis; this is not a live agent recording or a speed comparison. RAG can also perform analytics when equipped with tools; EigenLens supplies the clustering and topic-analysis tools alongside retrieval.
-
 <details>
 <summary><strong>Read the comparison</strong></summary>
 
