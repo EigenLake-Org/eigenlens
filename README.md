@@ -2,9 +2,11 @@
 
 ![EigenLens — Agents can retrieve. Now let them discover.](docs/assets/eigenlens-hero.svg)
 
-**A discovery layer for agents over the vector data you already have.**
+**A discovery layer for agents over your existing vector data.**
 
-Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings into **clusters, topics and representative records** through Python or MCP. Your agent can explore what is in a collection, then investigate the groups it finds.
+Discover clusters, uncover topics, and explore representative records through Python and MCP.
+
+Keep your agent. Keep RAG. Add discovery.
 
 [Comparison](#what-does-discovery-add) · [Demo](#see-discovery-in-action) · [Installation](#installation) · [Python](#use-your-existing-python-database-client) · [MCP](#connect-mcp-to-a-chat-agent) · [OpenAI Agents SDK](docs/openai-agents.md) · [Docker Hub](https://hub.docker.com/r/eigenlake/eigenlens)
 
@@ -23,26 +25,26 @@ Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings in
 
 | Typical retrieval-only RAG | RAG + EigenLens |
 | --- | --- |
-| “Retrieved examples mention pending payments, declined payments and unrecognized payments in the app.” | “Across **1,236 selected records**, DBSCAN found **18 clusters** and left **852 records unassigned**. Topics include pending card payments, unrecognized card payments and declined card payments.” |
-| Inspect relevant passages and their sources. | Inspect a cluster plot, group sizes, BERTopic phrases and representative source records. |
+| “Retrieved examples mention pending payments, declined payments and unrecognized payments in the app.” | “Across **1,236 selected records**, EigenLens found **18 clusters** and left **852 records unassigned**. Topics include pending card payments, unrecognized card payments and declined card payments.” |
+| Inspect relevant passages and their sources. | Inspect a cluster plot, group sizes, topic phrases and representative source records. |
 | Follow up by retrieving more evidence. | Follow up with “Show examples from the largest cluster” or “Which records remain unassigned?” |
 
 </details>
 
 ## See discovery in action
 
-![Animated 3D view of 18 DBSCAN clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
+![Animated 3D view of 18 clusters in a BANKING77 payment selection](docs/assets/banking77-clusters.gif)
 
-**Real public data:** a saved selection of **1,236** payment-related BANKING77 records, analyzed with DBSCAN and BERTopic. Colors show **18 clusters**; gray shows **852 unassigned records**. Every selected record is displayed. PCA provides the visualization coordinates.
+**Real public data:** a saved selection of **1,236** payment-related BANKING77 records, analyzed with EigenLens. Colors show **18 clusters**; gray shows **852 unassigned records**. Every selected record is displayed.
 
 This is an animation of saved results, not a recording of execution speed or an analysis of the full corpus. [Static preview](docs/assets/banking77-clusters.png) · [Run BANKING77 yourself](#try-the-banking77-demo)
 
 <details>
 <summary><strong>Explore topics and representative examples</strong></summary>
 
-![Three discovered payment topics with BERTopic phrases and representative banking questions](docs/assets/banking77-topics.gif)
+![Three discovered payment topics with topic phrases and representative banking questions](docs/assets/banking77-topics.gif)
 
-The same analysis provides topic phrases and source examples for each group. These labels come from BERTopic; no language model was used to name this demo's clusters.
+The same analysis provides topic phrases and source examples for each group.
 
 </details>
 
@@ -52,15 +54,15 @@ RAG helps an agent find evidence for a question. EigenLens helps it examine the 
 
 | Your agent asks | EigenLens returns |
 | --- | --- |
-| “What groups exist in these records?” | DBSCAN clusters, sizes and assignments |
-| “What is each group about?” | BERTopic keywords and phrases |
+| “What groups exist in these records?” | Clusters, sizes and assignments |
+| “What is each group about?” | Topic keywords and phrases |
 | “Show the evidence behind this topic.” | Representative record IDs and source text |
 | “Which records do not belong to a group?” | Unassigned records, marked `-1` |
 | “What is my analysis doing?” | Job status, detailed stages and available counters |
 
 ![Your existing agent uses RAG, EigenLens discovery and existing action tools over existing data](docs/assets/discovery-workflow.svg)
 
-**Use stored embeddings.** Analysis does not re-embed your records. DBSCAN discovers groups; BERTopic uses those assignments to extract topic terms through its manual workflow. Results include coordinates that your agent or application can plot.
+**Use stored embeddings.** EigenLens discovers groups and extracts their topics without re-embedding your records. Results include coordinates that your agent or application can plot.
 
 **Run work in the background.** The MCP server queues analysis in isolated processes, supports cancellation, saves results and reuses identical completed analyses. Default concurrency is **1 worker**, configurable up to 16. More workers run more jobs concurrently; they do not distribute a single analysis.
 
@@ -74,7 +76,7 @@ Requires **Python 3.11+** and access to the source repository:
 pip install 'eigenlens[server,qdrant] @ git+https://github.com/EigenLake-Org/eigenlens.git@main'
 ```
 
-This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; `[server,databases]` installs all five. This is a pip install from Git, not a PyPI release.
+This installs the `eigenlens` command, clustering and topic-analysis tools, and the Qdrant adapter. Other database extras are `pinecone`, `milvus`, `weaviate` and `pgvector`; `[server,databases]` installs all five. This is a pip install from Git, not a PyPI release.
 
 ### Public Docker image
 
@@ -120,8 +122,8 @@ finally:
     client.close()
 
 results = el.analyze(data, [
-    {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
-    {"id": "themes", "type": "topics", "algorithm": "bertopic",
+    {"id": "groups", "type": "cluster"},
+    {"id": "themes", "type": "topics",
      "clusters_from": "groups", "parameters": {"ngram_max": 2}},
 ])
 print(results["groups"].summary())
@@ -148,7 +150,7 @@ Start a new session with the server enabled. Connect a database, list its collec
 
 > Connect to my configured vector database and list its collections.
 
-> Search my selected collection for ATM-related records. Report the selection count and search limit. Cluster every retrieved record with DBSCAN, extract BERTopic phrases, and show cluster sizes, unassigned records and examples. Wait for completion and report any failure.
+> Search my selected collection for ATM-related records. Report the selection count and search limit. Cluster every retrieved record, extract topic phrases, and show cluster sizes, unassigned records and examples. Wait for completion and report any failure.
 
 > Plot the clusters in 3D, then show five examples from the largest cluster.
 
@@ -164,8 +166,8 @@ After `retrieve_records` or `register_records` returns a dataset ID, the agent c
   "arguments": {
     "dataset_id": "ds_example",
     "operations": [
-      {"id": "groups", "type": "cluster", "algorithm": "dbscan_search"},
-      {"id": "themes", "type": "topics", "algorithm": "bertopic",
+      {"id": "groups", "type": "cluster"},
+      {"id": "themes", "type": "topics",
        "clusters_from": "groups", "parameters": {"ngram_max": 2}}
     ]
   }
@@ -226,13 +228,13 @@ codex mcp add eigenlens-banking \
 
 Start a new session and ask:
 
-> Use eigenlens-banking to register banking77.jsonl as a complete selection. Cluster all records with DBSCAN search, then model their topics with BERTopic. Wait for completion and show cluster sizes, unassigned records, topic terms and examples.
+> Use eigenlens-banking to register banking77.jsonl as a complete selection. Cluster all records, then discover their topics. Wait for completion and show cluster sizes, unassigned records, topic terms and examples.
 
 The prepared artifact is already staged. The demo configuration accepts the full corpus; the generic local server defaults to a 10,000-record limit. To exercise MCP without a language model, run `python examples/mcp_client.py` after installation; it analyzes 62 synthetic records.
 
 ## Scope and limits
 
-EigenLens currently runs bounded, in-memory PCA/DBSCAN analyses and BERTopic topic extraction. It does not provide distributed million-row clustering or time-series change detection. Unassigned records are **not calibrated anomaly scores**. Row, memory and time limits apply; oversized selections fail without silent sampling. See [performance, caching and resource limits](docs/performance.md) and [worker configuration](docs/worker.md).
+EigenLens currently runs bounded, in-memory clustering and topic extraction. It does not provide distributed million-row clustering or time-series change detection. Unassigned records are **not calibrated anomaly scores**. Row, memory and time limits apply; oversized selections fail without silent sampling. See [performance, caching and resource limits](docs/performance.md) and [worker configuration](docs/worker.md).
 
 ## Documentation
 

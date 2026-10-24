@@ -7,7 +7,7 @@
 <text x="52" y="48" fill="#20d8e9" font-size="18" font-weight="700" letter-spacing="4">EIGENLENS</text>
 <text x="52" y="133" fill="#eef4f8" font-size="58" font-weight="700">Agents can retrieve.</text>
 <text x="52" y="202" fill="#20d8e9" font-size="58" font-weight="700">Now let them discover.</text>
-<text x="54" y="257" fill="#b2c5d2" font-size="23">A discovery layer for the vector data you already have.</text>
+<text x="54" y="257" fill="#b2c5d2" font-size="23">A discovery layer for agents over your existing vector data.</text>
 <g font-size="13" font-weight="700" letter-spacing="1.2">
 <rect x="54" y="299" width="172" height="38" rx="8" fill="#0c2b29" stroke="#38d6ae"/>
 <text x="71" y="324" fill="#8fe6ce">KEEP YOUR AGENT</text>

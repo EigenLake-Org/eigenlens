@@ -94,7 +94,7 @@ def scene(data, angle, focus=None):
 def overview(data, angle):
     im, draw, palette = scene(data, angle)
     header(draw, "From stored vectors to discovered structure",
-           'BANKING77  /  saved selection for "payment"  /  DBSCAN + BERTopic')
+           'BANKING77  /  saved selection for "payment"  /  clusters + topics')
     analysis = data["analysis"]
     for top, value, label in [(176, len(data["points"]), "SELECTED RECORDS"),
                               (286, analysis["cluster_count"], "CLUSTERS"),
@@ -106,7 +106,7 @@ def overview(data, angle):
     first = next(g for g in data["groups"] if g["cluster_id"] != -1)
     for i, line in enumerate(textwrap.wrap(first["label"], 21)):
         text(draw, (953, 550+i*26), line, 22, WHITE, True)
-    text(draw, (953, 610), "Gray = DBSCAN noise", 16, MUTED)
+    text(draw, (953, 610), "Gray = unassigned records", 16, MUTED)
     return im
 
 
@@ -122,7 +122,7 @@ def topic_view(data, group):
     for line in textwrap.wrap(group["label"], 19):
         text(draw, (942, y), line, 25, WHITE, True)
         y += 30
-    text(draw, (942, y+12), "BERTOPIC PHRASES", 13, MUTED, True)
+    text(draw, (942, y+12), "TOPIC PHRASES", 13, MUTED, True)
     y += 40
     for term in group["terms"][:4]:
         text(draw, (942, y), term["term"], 19, color)
@@ -162,8 +162,8 @@ def discovery_story(data, output):
             text(draw, (970, 498), "Every selected record", 19, MUTED)
             text(draw, (970, 525), "goes into the analysis.", 19, MUTED)
             if step == 1:
-                labels = [("PCA + DBSCAN", "Discover groups"),
-                          ("BERTopic", "Extract topic phrases")]
+                labels = [("Cluster records", "Discover groups"),
+                          ("Discover topics", "Extract topic phrases")]
                 for i, (title, subtitle) in enumerate(labels):
                     left = 100 + i * 420
                     box(draw, (left, 330, left+345, 444), outline=CYAN)
@@ -316,7 +316,7 @@ def comparison_chat(data, output):
                 box(draw, (670, 566, 1222, 636), fill=BG, radius=9)
                 text(draw, (684, 575), "SOURCE EXAMPLE", 11, CYAN, True)
                 paragraph(draw, (684, 597), example["text"], 520, size=19)
-        text(draw, (36, 670), f"BANKING77 demo / {count:,} selected records / DBSCAN + BERTopic", 15, MUTED)
+        text(draw, (36, 670), f"BANKING77 demo / {count:,} selected records / clusters + topics", 15, MUTED)
         text(draw, (36, 695), "Gray plot points are unassigned records.", 13, MUTED)
         return im
 
@@ -372,7 +372,7 @@ def hero(data, path):
 <text x="52" y="48" fill="#20d8e9" font-size="18" font-weight="700" letter-spacing="4">EIGENLENS</text>
 <text x="52" y="133" fill="#eef4f8" font-size="58" font-weight="700">Agents can retrieve.</text>
 <text x="52" y="202" fill="#20d8e9" font-size="58" font-weight="700">Now let them discover.</text>
-<text x="54" y="257" fill="#b2c5d2" font-size="23">A discovery layer for the vector data you already have.</text>
+<text x="54" y="257" fill="#b2c5d2" font-size="23">A discovery layer for agents over your existing vector data.</text>
 <g font-size="13" font-weight="700" letter-spacing="1.2">
 <rect x="54" y="299" width="172" height="38" rx="8" fill="#0c2b29" stroke="#38d6ae"/>
 <text x="71" y="324" fill="#8fe6ce">KEEP YOUR AGENT</text>
