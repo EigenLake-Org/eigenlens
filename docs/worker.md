@@ -6,7 +6,7 @@ The MCP server runs PCA/DBSCAN and BERTopic inside isolated job processes. Calle
 
 ### Prebuilt image
 
-Use the public Docker Hub image `sourabheigenlake/eigenlake:eigenlens-0.1.0`. It supports `linux/amd64` and `linux/arm64`; Docker selects the matching architecture. No GitHub account, registry login or repository clone is needed.
+Use the public Docker Hub image `eigenlake/eigenlens:eigenlens-0.1.0`. It supports `linux/amd64` and `linux/arm64`; Docker selects the matching architecture. No GitHub account, registry login or repository clone is needed.
 
 For a **new installation**, create a private runtime configuration and start the MCP worker:
 
@@ -19,12 +19,12 @@ if [ ! -f .env ]; then
    printf 'EIGENLENS_MCP_TOKEN=%s\nEIGENLENS_CONNECTION_KEY=%s\nEIGENLENS_WORKERS=1\n' \
      "$(openssl rand -hex 32)" "$(openssl rand -base64 32 | tr '+/' '-_')" > .env)
 fi
-docker pull sourabheigenlake/eigenlake:eigenlens-0.1.0
+docker pull eigenlake/eigenlens:eigenlens-0.1.0
 docker run -d --name eigenlens-worker --init --restart unless-stopped \
   --publish 127.0.0.1:8020:8000 --memory 8g --cpus 2 \
   --env-file .env --env EIGENLENS_CPU_BUDGET=2 \
   --volume eigenlens_worker-data:/data \
-  sourabheigenlake/eigenlake:eigenlens-0.1.0
+  eigenlake/eigenlens:eigenlens-0.1.0
 ```
 
 Connect your MCP client to `http://127.0.0.1:8020/mcp` using the token from `.env`. The server still requires this token even though its Docker image is public. No host Python or compiler is needed. For database tools, add `EIGENLENS_DATABASE_TYPE`, `EIGENLENS_DATABASE_URL`, and any credentials/options to the private runtime environment, or pass connection settings from your application's backend. Database URLs must be reachable from inside the container. See [database setup](databases.md).

@@ -6,7 +6,7 @@
 
 Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings into **clusters, topics and representative records** through Python or MCP. Your agent can explore what is in a collection, then investigate the groups it finds.
 
-[Comparison](#what-does-discovery-add) · [Demo](#see-discovery-in-action) · [Installation](#installation) · [Python](#use-your-existing-python-database-client) · [MCP](#connect-mcp-to-a-chat-agent) · [OpenAI Agents SDK](docs/openai-agents.md) · [Docker Hub](https://hub.docker.com/r/sourabheigenlake/eigenlake)
+[Comparison](#what-does-discovery-add) · [Demo](#see-discovery-in-action) · [Installation](#installation) · [Python](#use-your-existing-python-database-client) · [MCP](#connect-mcp-to-a-chat-agent) · [OpenAI Agents SDK](docs/openai-agents.md) · [Docker Hub](https://hub.docker.com/r/eigenlake/eigenlens)
 
 ## What does discovery add?
 
@@ -81,7 +81,7 @@ This installs the `eigenlens` command, DBSCAN, BERTopic and the Qdrant adapter. 
 The MCP server and analysis worker are available together for Linux AMD64 and ARM64:
 
 ```bash
-docker pull sourabheigenlake/eigenlake:eigenlens-0.1.0
+docker pull eigenlake/eigenlens:eigenlens-0.1.0
 ```
 
 **No repository clone or registry login is needed to pull the image.** Follow the [Docker quickstart](docs/worker.md#prebuilt-image) to set the private runtime configuration, start the worker and connect to `http://127.0.0.1:8020/mcp` with its bearer token.

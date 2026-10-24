@@ -3,7 +3,7 @@
 The release workflow builds and tests the image in GHCR, then mirrors that exact multi-platform digest to the public Docker Hub repository:
 
 ```text
-sourabheigenlake/eigenlake:eigenlens-0.1.0
+eigenlake/eigenlens:eigenlens-0.1.0
 ```
 
 Docker Hub tags use the `eigenlens-` prefix so this repository can contain more than one image component. The private source repository and GHCR package remain available to maintainers.
@@ -29,7 +29,7 @@ To mirror an already tested GHCR release without rebuilding, run `Publish public
 
 ## Publisher authentication
 
-The GHCR stage uses `GITHUB_TOKEN` with repository content and package permissions. The Docker Hub stage needs an encrypted repository Actions secret named `DOCKERHUB_TOKEN`, containing a Docker Hub access token with push access to `sourabheigenlake/eigenlake`. The publisher username is `sourabheigenlake`. Secret values are never part of the image, repository or runtime environment.
+The GHCR stage uses `GITHUB_TOKEN` with repository content and package permissions. The Docker Hub stage needs an encrypted repository Actions secret named `DOCKERHUB_TOKEN`, containing a Docker Hub access token with push access to `eigenlake/eigenlens`. The publisher username is `eigenlake`. Secret values are never part of the image, repository or runtime environment.
 
 ```bash
 # gh prompts privately for the token. Do not put it in a command argument.
@@ -43,8 +43,8 @@ The Docker Hub repository is public. End users do not need a Docker Hub or GitHu
 After publication, verify the manifest:
 
 ```bash
-docker buildx imagetools inspect sourabheigenlake/eigenlake:eigenlens-0.1.0
-docker pull sourabheigenlake/eigenlake:eigenlens-0.1.0
+docker buildx imagetools inspect eigenlake/eigenlens:eigenlens-0.1.0
+docker pull eigenlake/eigenlens:eigenlens-0.1.0
 ```
 
 The manifest must include `linux/amd64` and `linux/arm64`. The build logs and GitHub release identify the source commit. See the [Docker Hub documentation](https://docs.docker.com/docker-hub/repos/manage/hub-images/push/) for pushing image tags.
