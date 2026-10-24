@@ -12,15 +12,24 @@ Keep your agent. Keep RAG. Add discovery. EigenLens turns existing embeddings in
 
 **Same question. Same saved selection of 1,236 records.**
 
+![Animated chat comparison: a question is typed, RAG returns examples, and RAG with EigenLens adds groups, clearer topic names, counts, a plot and a cluster follow-up](docs/assets/rag-vs-eigenlens.gif)
+
+[Static comparison](docs/assets/rag-vs-eigenlens.png)
+
+The chat wording and simplified topic names are illustrative. Counts, plot coordinates and quoted records come from the saved BANKING77 analysis; this is not a live agent recording or a speed comparison. RAG can also perform analytics when equipped with tools; EigenLens supplies the clustering and topic-analysis tools alongside retrieval.
+
+<details>
+<summary><strong>Read the comparison</strong></summary>
+
 > “What payment issues appear in these banking questions?”
 
 | Typical retrieval-only RAG | RAG + EigenLens |
 | --- | --- |
-| “Retrieved examples mention pending payments, declined payments and unrecognized payments in the app.” | “Across **1,236 selected records**, DBSCAN found **18 clusters** and left **852 records unassigned**. Discovered topics include payment pending, payment app and payment declined.” |
+| “Retrieved examples mention pending payments, declined payments and unrecognized payments in the app.” | “Across **1,236 selected records**, DBSCAN found **18 clusters** and left **852 records unassigned**. Topics include pending card payments, unrecognized card payments and declined card payments.” |
 | Inspect relevant passages and their sources. | Inspect a cluster plot, group sizes, BERTopic phrases and representative source records. |
 | Follow up by retrieving more evidence. | Follow up with “Show examples from the largest cluster” or “Which records remain unassigned?” |
 
-The answer wording is illustrative, not a recorded model comparison. The EigenLens counts and topics come from the saved BANKING77 analysis below. RAG can also perform analytics when equipped with tools; EigenLens supplies the clustering and topic-analysis tools alongside retrieval.
+</details>
 
 ## See discovery in action
 

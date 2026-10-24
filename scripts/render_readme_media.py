@@ -195,6 +195,154 @@ def discovery_story(data, output):
     gif(frames, output/"banking77-discovery.gif", [2600, 2600, 3400, 4600])
 
 
+def comparison_chat(data, output):
+    """Animate illustrative chat copy around real saved counts and source text."""
+    groups = [g for g in data["groups"] if g["cluster_id"] != -1]
+    display_names = {"Payment pending": "Pending card payments",
+                     "Payment app": "Unrecognized card payments",
+                     "Payment declined": "Declined card payments"}
+    selected = groups[:3]
+    question = "What payment issues appear in these banking questions?"
+    rag_answer = ("The retrieved examples mention pending payments, declined "
+                  "payments and unrecognized payments in the app.")
+    count = len(data["points"])
+    answer = (f"I analyzed all {count:,} selected records. Here are the groups "
+              "and topics I found.")
+
+    def paragraph(draw, xy, value, width, size=21, color=WHITE):
+        x, y = xy
+        words, line = value.split(), ""
+        for word in words:
+            candidate = f"{line} {word}".strip()
+            if line and draw.textlength(candidate, font=font(size)) > width:
+                text(draw, (x, y), line, size, color)
+                y += size+8
+                line = word
+            else:
+                line = candidate
+        if line:
+            text(draw, (x, y), line, size, color)
+        return y+size+8
+
+    def scatter(draw, bounds, angle, focus=None):
+        left, top, right, bottom = bounds
+        box(draw, bounds, fill=BG, radius=10)
+        values = np.asarray([p["pca_3d"] for p in data["points"]], dtype=float)
+        a = np.radians(angle)
+        px = values[:, 0]*np.cos(a)-values[:, 1]*np.sin(a)
+        py = values[:, 0]*np.sin(a)*0.4+values[:, 1]*np.cos(a)*0.4+values[:, 2]*0.8
+        # Fixed bounds over the rotation keep every point inside the plot.
+        radius = max(float(np.linalg.norm(values, axis=1).max()), 1e-9)
+        scale = min(right-left-28, bottom-top-28)/2
+        px = (left+right)/2 + px/radius*scale
+        py = (top+bottom)/2 - py/radius*scale
+        palette = {g["cluster_id"]: COLORS[i % len(COLORS)] for i, g in enumerate(groups)}
+        order = sorted(range(len(data["points"])),
+                       key=lambda i: data["points"][i]["cluster_id"] != -1)
+        for i in order:
+            cid = data["points"][i]["cluster_id"]
+            active = focus is None or cid == focus
+            color = palette.get(cid, "#3b5364") if active else "#203746"
+            r = 2.2 if cid != -1 and active else 1
+            draw.ellipse((px[i]-r, py[i]-r, px[i]+r, py[i]+r), fill=color)
+
+    def frame(query_chars, rag_chars=0, phase=0, answer_chars=0, angle=0):
+        im = Image.new("RGB", (W, H), BG)
+        draw = ImageDraw.Draw(im)
+        text(draw, (36, 24), "Same question. A richer answer.", 32, WHITE, True)
+        text(draw, (1092, 34), "EIGENLENS", 18, CYAN, True)
+        box(draw, (36, 79, 1244, 147), fill="#102532", radius=18)
+        text(draw, (56, 88), "YOU", 11, CYAN, True)
+        text(draw, (56, 110), question[:query_chars], 23)
+        if query_chars < len(question):
+            x = 56+draw.textlength(question[:query_chars], font=font(23))
+            draw.line((x+3, 109, x+3, 135), fill=CYAN, width=2)
+        draw.ellipse((1190, 97, 1226, 133), fill=CYAN)
+        draw.line((1208, 107, 1208, 124), fill=BG, width=2)
+        draw.line((1200, 115, 1208, 107, 1216, 115), fill=BG, width=2)
+        for left, right, label, color in [(36, 628, "Typical retrieval-only RAG", MUTED),
+                                           (648, 1244, "RAG + EigenLens", CYAN)]:
+            box(draw, (left, 167, right, 650), outline=LINE if left == 36 else "#23818e")
+            text(draw, (left+20, 187), label, 23, color, True)
+            draw.line((left+20, 225, right-20, 225), fill=LINE)
+        if rag_chars:
+            paragraph(draw, (56, 244), rag_answer[:rag_chars], 548)
+        if rag_chars == len(rag_answer):
+            text(draw, (56, 350), "RETRIEVED EXAMPLES", 13, MUTED, True)
+            for i, group in enumerate(selected):
+                example = min(group["examples"], key=lambda e: len(e["text"]))
+                top = 377+i*72
+                box(draw, (56, top, 608, top+62), fill=BG, radius=9)
+                paragraph(draw, (70, top+9), example["text"], 520, size=17)
+            text(draw, (56, 609), "Follow up: retrieve more matching examples", 16, MUTED)
+        if phase in (1, 2):
+            text(draw, (670, 249), "Using the saved retrieval selection", 21)
+            text(draw, (670, 291), f"{count:,} records with stored embeddings", 20, CYAN)
+            if phase == 2:
+                box(draw, (670, 350, 1222, 420), fill=BG)
+                text(draw, (690, 365), "Finding groups and topic phrases...", 21, CYAN)
+                text(draw, (690, 395), "Illustrated analysis step", 13, MUTED)
+        if phase >= 3:
+            response = (f'The largest group contains {selected[0]["count"]} records. '
+                        'Here is a representative example.' if phase == 6
+                        else answer[:answer_chars])
+            paragraph(draw, (670, 244), response, 548, size=20)
+        if phase >= 4:
+            stats = [(f"{count:,}", "RECORDS"), (str(data["analysis"]["cluster_count"]), "CLUSTERS"),
+                     (str(data["analysis"]["noise_count"]), "UNASSIGNED")]
+            for i, (value, label) in enumerate(stats):
+                x = 670+i*188
+                box(draw, (x, 314, x+176, 373), fill=BG, radius=9)
+                text(draw, (x+12, 321), value, 24, WHITE, True)
+                text(draw, (x+12, 352), label, 11, MUTED, True)
+            if phase < 6:
+                text(draw, (670, 387), "3 OF 18 GROUPS / SIMPLIFIED TOPIC NAMES", 11, MUTED, True)
+                for i, group in enumerate(selected):
+                    y = 414+i*56
+                    text(draw, (670, y), display_names.get(group["label"], group["label"]), 17)
+                    text(draw, (670, y+24), f'{group["count"]} records', 14, COLORS[i], True)
+                scatter(draw, (950, 408, 1222, 584), angle)
+                if phase == 5:
+                    box(draw, (670, 599, 1222, 633), fill="#123d46", outline=CYAN, radius=12)
+                    text(draw, (684, 608), "You: Show examples from the largest cluster", 17)
+                else:
+                    text(draw, (670, 606), "Explore groups, topic phrases and source records", 16, MUTED)
+            else:
+                group = selected[0]
+                text(draw, (670, 388), f'LARGEST GROUP / {group["count"]} RECORDS', 12, CYAN, True)
+                paragraph(draw, (670, 420), display_names[group["label"]], 250, size=23)
+                text(draw, (670, 501), "Inspect the source record", 16, MUTED)
+                scatter(draw, (950, 390, 1222, 554), angle, focus=group["cluster_id"])
+                example = min(group["examples"], key=lambda e: len(e["text"]))
+                box(draw, (670, 566, 1222, 636), fill=BG, radius=9)
+                text(draw, (684, 575), "SOURCE EXAMPLE", 11, CYAN, True)
+                paragraph(draw, (684, 597), example["text"], 520, size=19)
+        text(draw, (36, 670), "Illustrative chat / real saved BANKING77 counts and examples / simplified topic names", 15, MUTED)
+        text(draw, (36, 695), "Animation is not a live agent recording or a runtime benchmark. Gray plot points are unassigned records.", 13, MUTED)
+        return im
+
+    frames, durations = [], []
+    def add(im, duration):
+        frames.append(im)
+        durations.append(duration)
+    for n in range(0, len(question), 8):
+        add(frame(n), 120)
+    add(frame(len(question)), 400)
+    for n in range(18, len(rag_answer), 18):
+        add(frame(len(question), n, phase=1), 110)
+    add(frame(len(question), len(rag_answer), phase=1), 1700)
+    add(frame(len(question), len(rag_answer), phase=2), 1200)
+    for n in range(18, len(answer), 18):
+        add(frame(len(question), len(rag_answer), phase=3, answer_chars=n), 110)
+    for angle in (0, 25, 50):
+        add(frame(len(question), len(rag_answer), phase=4, answer_chars=len(answer), angle=angle), 700)
+    frames[-1].save(output/"rag-vs-eigenlens.png", optimize=True)
+    add(frames[-1].copy(), 2800)
+    add(frame(len(question), len(rag_answer), phase=5, answer_chars=len(answer), angle=50), 2200)
+    add(frame(len(question), len(rag_answer), phase=6, answer_chars=len(answer), angle=50), 4800)
+    gif(frames, output/"rag-vs-eigenlens.gif", durations)
+
+
 def gif(frames, path, durations):
     # Use every scene to retain the colors of topics absent from the first frame.
     sheet = Image.new("RGB", (W, H * len(frames)))
@@ -284,6 +432,7 @@ def main():
     assert len(counts)-1 == data["analysis"]["cluster_count"]
     assert {g["cluster_id"]: g["count"] for g in data["groups"]} == dict(counts)
     args.output.mkdir(parents=True, exist_ok=True)
+    comparison_chat(data, args.output)
     discovery_story(data, args.output)
     frames = [overview(data, angle) for angle in np.linspace(0, 360, args.frames, endpoint=False)]
     frames[0].save(args.output/"banking77-clusters.png", optimize=True)
@@ -292,7 +441,8 @@ def main():
     gif([topic_view(data, g) for g in focus], args.output/"banking77-topics.gif", 2800)
     hero(data, args.output/"eigenlens-hero.svg")
     workflow(args.output/"discovery-workflow.svg")
-    for name in ["banking77-discovery.gif", "banking77-discovery.png",
+    for name in ["rag-vs-eigenlens.gif", "rag-vs-eigenlens.png",
+                 "banking77-discovery.gif", "banking77-discovery.png",
                  "banking77-clusters.gif", "banking77-topics.gif", "banking77-clusters.png"]:
         print(f"{name}: {(args.output/name).stat().st_size:,} bytes")
 
